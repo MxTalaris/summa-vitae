@@ -3,6 +3,7 @@ import { Icon } from '../components/Icon';
 import { Chip, Kicker, SECTION_META } from '../components/primitives';
 import { FitPaper, defaultSelForFocus, pickItems, SECTION_TITLES, CVDocument } from '../cv/CVRenderer';
 import { CV_STYLES } from '../data/seed';
+import { useStore } from '../store/useStore';
 import type { BaseCV, Pov, CvSelection, BuilderDraft, BuildStep, CvStyleId, TrimmedCV } from '../types';
 
 const COMPOSE_ORDER = ['work', 'education', 'portfolio', 'other', 'certs', 'skills', 'languages'];
@@ -165,26 +166,431 @@ function AddPicker({ base, section, sel, onAdd, onClose }: AddPickerProps) {
   );
 }
 
+/* ---- Version Picker Modal (Feature 2) ---- */
+function MF({ label, value, onChange, area }: {
+  label: string; value: string; onChange: (v: string) => void; area?: boolean;
+}) {
+  return (
+    <div className="field">
+      <label style={{ fontSize: 11 }}>{label}</label>
+      {area
+        ? <textarea className="textarea" value={value} onChange={(e) => onChange(e.target.value)} rows={4} />
+        : <input className="input" value={value} onChange={(e) => onChange(e.target.value)} />}
+    </div>
+  );
+}
+
+function asStr(v: unknown): string {
+  if (Array.isArray(v)) return v.join(', ');
+  return String(v ?? '');
+}
+function asList(v: unknown): string[] {
+  if (Array.isArray(v)) return v as string[];
+  if (typeof v === 'string') return v.split('\n').filter(Boolean);
+  return [];
+}
+
+function VersionPreview({ section, data }: { section: string; data: Record<string, unknown> }) {
+  const row = (label: string, value: unknown) => value ? (
+    <div style={{ marginBottom: 5 }}>
+      <span className="mono" style={{ fontSize: 10, color: 'var(--ink-faint)', marginRight: 6 }}>{label}</span>
+      <span style={{ fontSize: 13 }}>{asStr(value)}</span>
+    </div>
+  ) : null;
+
+  return (
+    <div style={{ padding: '4px 2px' }}>
+      {section === 'work' && <>
+        <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 4 }}>{asStr(data.role)}</div>
+        <div className="mono" style={{ fontSize: 11, color: 'var(--ink-faint)', marginBottom: 10 }}>
+          {asStr(data.org)} · {asStr(data.start)}–{asStr(data.end)}{data.location ? ` · ${data.location}` : ''}
+        </div>
+        {data.blurb && <p style={{ fontSize: 13, color: 'var(--ink-soft)', margin: '0 0 8px' }}>{asStr(data.blurb)}</p>}
+        {asList(data.bullets).length > 0 && (
+          <ul style={{ margin: 0, paddingLeft: 16, fontSize: 13, lineHeight: 1.55 }}>
+            {asList(data.bullets).slice(0, 5).map((b, i) => <li key={i}>{b}</li>)}
+            {asList(data.bullets).length > 5 && <li style={{ opacity: .4 }}>+{asList(data.bullets).length - 5} more</li>}
+          </ul>
+        )}
+      </>}
+      {section === 'education' && <>
+        <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 4 }}>{asStr(data.degree)}</div>
+        {row('at', data.org)}{row('period', `${data.start}–${data.end}`)}{row('note', data.note)}
+      </>}
+      {section === 'portfolio' && <>
+        <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 4 }}>{asStr(data.name)}</div>
+        {row('role', data.role)}{row('year', data.year)}
+        {data.desc && <p style={{ fontSize: 13, color: 'var(--ink-soft)', margin: '6px 0 0' }}>{asStr(data.desc)}</p>}
+      </>}
+      {section === 'other' && <>
+        <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 4 }}>{asStr(data.title)}</div>
+        {row('at', data.org)}{row('when', data.period)}
+        {data.desc && <p style={{ fontSize: 13, color: 'var(--ink-soft)', margin: '6px 0 0' }}>{asStr(data.desc)}</p>}
+      </>}
+      {section === 'certs' && <>
+        <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 4 }}>{asStr(data.name)}</div>
+        {row('issuer', data.org)}{row('year', data.year)}
+      </>}
+      {section === 'languages' && <>
+        <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 4 }}>{asStr(data.name)}</div>
+        {row('level', data.level)}
+      </>}
+    </div>
+  );
+}
+
+function CustomEntryForm({ section, data, setField }: {
+  section: string;
+  data: Record<string, unknown>;
+  setField: (k: string, v: unknown) => void;
+}) {
+  const str = (k: string) => (Array.isArray(data[k]) ? (data[k] as string[]).join(k === 'bullets' ? '\n' : ', ') : String(data[k] ?? ''));
+  const set = (k: string) => (v: string) => setField(k, v);
+
+  if (section === 'work') return (
+    <>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+        <MF label="Role" value={str('role')} onChange={set('role')} />
+        <MF label="Organisation" value={str('org')} onChange={set('org')} />
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 12, marginTop: 10 }}>
+        <MF label="From" value={str('start')} onChange={set('start')} />
+        <MF label="To" value={str('end')} onChange={set('end')} />
+        <MF label="Location" value={str('location')} onChange={set('location')} />
+        <MF label="Tags" value={str('tags')} onChange={set('tags')} />
+      </div>
+      <div style={{ marginTop: 10 }}><MF label="One-line summary" value={str('blurb')} onChange={set('blurb')} /></div>
+      <div style={{ marginTop: 10 }}><MF label="Highlights (one per line)" value={str('bullets')} onChange={set('bullets')} area /></div>
+    </>
+  );
+
+  if (section === 'education') return (
+    <>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+        <MF label="Degree / programme" value={str('degree')} onChange={set('degree')} />
+        <MF label="Institution" value={str('org')} onChange={set('org')} />
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 2fr', gap: 12, marginTop: 10 }}>
+        <MF label="From" value={str('start')} onChange={set('start')} />
+        <MF label="To" value={str('end')} onChange={set('end')} />
+        <MF label="Note" value={str('note')} onChange={set('note')} />
+      </div>
+    </>
+  );
+
+  if (section === 'portfolio') return (
+    <>
+      <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: 12 }}>
+        <MF label="Project" value={str('name')} onChange={set('name')} />
+        <MF label="Role" value={str('role')} onChange={set('role')} />
+        <MF label="Year" value={str('year')} onChange={set('year')} />
+      </div>
+      <div style={{ marginTop: 10 }}><MF label="Description" value={str('desc')} onChange={set('desc')} area /></div>
+    </>
+  );
+
+  if (section === 'other') return (
+    <>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
+        <MF label="What" value={str('title')} onChange={set('title')} />
+        <MF label="Where" value={str('org')} onChange={set('org')} />
+        <MF label="When" value={str('period')} onChange={set('period')} />
+      </div>
+      <div style={{ marginTop: 10 }}><MF label="Description" value={str('desc')} onChange={set('desc')} area /></div>
+    </>
+  );
+
+  if (section === 'certs') return (
+    <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: 12 }}>
+      <MF label="Certification" value={str('name')} onChange={set('name')} />
+      <MF label="Issuer" value={str('org')} onChange={set('org')} />
+      <MF label="Year" value={str('year')} onChange={set('year')} />
+    </div>
+  );
+
+  if (section === 'languages') return (
+    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+      <MF label="Language" value={str('name')} onChange={set('name')} />
+      <MF label="Proficiency" value={str('level')} onChange={set('level')} />
+    </div>
+  );
+
+  return null;
+}
+
+interface VersionPickerModalProps {
+  entryId: string;
+  section: string;
+  base: BaseCV;
+  sel: CvSelection;
+  onApply: (newSel: CvSelection) => void;
+  onSaveBase: (newBase: BaseCV) => void;
+  onClose: () => void;
+}
+
+function VersionPickerModal({ entryId, section, base, sel, onApply, onSaveBase, onClose }: VersionPickerModalProps) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const all = ((base as any)[section] as { id: string; versions?: unknown[] }[]) || [];
+  const entry = all.find((x) => x.id === entryId) as Record<string, unknown> & { id: string } | undefined;
+  if (!entry) return null;
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const rawVersions = (entry as any).versions as Record<string, unknown>[] | undefined;
+  const allVersions: Record<string, unknown>[] = rawVersions?.length
+    ? rawVersions
+    : [{ ...entry }];
+
+  const isCurrentlyCustom = !!sel.customVersions?.[entryId];
+  const currentVIdx = sel.versionOverrides?.[entryId] ?? 0;
+
+  const [chosen, setChosen] = useState<number | 'custom'>(isCurrentlyCustom ? 'custom' : currentVIdx);
+  const [customData, setCustomData] = useState<Record<string, unknown>>(
+    (sel.customVersions?.[entryId] as Record<string, unknown>) ?? { ...allVersions[0] }
+  );
+  const [editing, setEditing] = useState(false);
+  const [editData, setEditData] = useState<Record<string, unknown>>({});
+
+  // Switching versions exits edit mode
+  const selectVersion = (v: number | 'custom') => { setChosen(v); setEditing(false); };
+
+  const setCustomField = (k: string, v: unknown) => setCustomData((d) => ({ ...d, [k]: v }));
+  const setEditField   = (k: string, v: unknown) => setEditData((d) => ({ ...d, [k]: v }));
+
+  const normalize = (data: Record<string, unknown>) => {
+    const d = { ...data };
+    const toArr = (v: unknown, sep: string) =>
+      Array.isArray(v) ? v : typeof v === 'string' ? v.split(sep).map((s) => s.trim()).filter(Boolean) : [];
+    if (section === 'work')      { d.bullets = toArr(d.bullets, '\n'); d.tags = toArr(d.tags, ','); }
+    if (section === 'portfolio') { d.tags = toArr(d.tags, ','); }
+    return d;
+  };
+
+  const handleApply = () => {
+    if (chosen === 'custom') {
+      const newCustom = { ...(sel.customVersions || {}), [entryId]: normalize(customData) };
+      const newOverrides = { ...(sel.versionOverrides || {}) };
+      delete newOverrides[entryId];
+      onApply({ ...sel, customVersions: newCustom, versionOverrides: Object.keys(newOverrides).length ? newOverrides : undefined });
+    } else {
+      const newOverrides = { ...(sel.versionOverrides || {}), [entryId]: chosen };
+      const newCustom = { ...(sel.customVersions || {}) };
+      delete newCustom[entryId];
+      onApply({ ...sel, versionOverrides: newOverrides, customVersions: Object.keys(newCustom).length ? newCustom : undefined });
+    }
+    onClose();
+  };
+
+  const handleStartEdit = () => {
+    setEditData({ ...allVersions[chosen as number] });
+    setEditing(true);
+  };
+
+  const handleSaveToBase = () => {
+    const normalized = normalize(editData);
+    // Deep-copy base and splice the updated version back in
+    const newBase = JSON.parse(JSON.stringify(base)) as BaseCV;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const entries = newBase[section as keyof BaseCV] as unknown as Record<string, unknown>[];
+    const entryIdx = entries.findIndex((e: any) => e.id === entryId);
+    if (entryIdx === -1) return;
+    const ent = entries[entryIdx] as any;
+    const versions = Array.isArray(ent.versions) ? [...ent.versions] : [{ ...ent }];
+    versions[chosen as number] = { ...normalized, id: entryId };
+    entries[entryIdx] = { ...ent, versions };
+    onSaveBase(newBase);
+    setEditing(false);
+  };
+
+  const entryTitle = itemLabel(section, entry as Record<string, unknown>);
+
+  const btnStyle = (active: boolean, isCustomBtn = false) => ({
+    height: 28, padding: isCustomBtn ? '0 12px' : '0', width: isCustomBtn ? 'auto' : 28,
+    borderRadius: 6, cursor: 'pointer',
+    fontSize: isCustomBtn ? 11 : 12, fontWeight: 700, fontFamily: 'var(--mono)',
+    border: active ? '1.5px solid var(--ink)' : '1.5px solid var(--line-strong)',
+    background: active ? (isCustomBtn ? 'var(--ink)' : 'var(--accent)') : 'var(--card)',
+    color: active ? '#fff' : 'var(--ink-soft)',
+    boxShadow: active ? '1.5px 1.5px 0 var(--ink)' : 'none',
+    transition: 'all .1s',
+  });
+
+  return (
+    <div
+      style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.48)', display: 'grid', placeItems: 'center', zIndex: 999 }}
+      onClick={editing ? undefined : onClose}
+    >
+      <div
+        style={{
+          background: 'var(--card)', borderRadius: 'var(--r-lg)', border: '1.5px solid var(--ink)',
+          boxShadow: 'var(--shadow)', width: 580, maxWidth: '92vw',
+          maxHeight: '82vh', display: 'flex', flexDirection: 'column', overflow: 'hidden',
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '14px 18px', borderBottom: '1.5px solid var(--line)', flexShrink: 0 }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontWeight: 700, fontSize: 15, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              {editing ? `Editing version ${(chosen as number) + 1} — ${entryTitle.main}` : (entryTitle.main || 'Entry')}
+            </div>
+            <div className="mono" style={{ fontSize: 10.5, color: 'var(--ink-faint)' }}>{entryTitle.sub}</div>
+          </div>
+          <button className="iconbtn" onClick={editing ? () => setEditing(false) : onClose} style={{ flexShrink: 0 }}>
+            <Icon name="x" size={16} />
+          </button>
+        </div>
+
+        {/* Version bar */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '12px 18px', borderBottom: '1.5px solid var(--line)', background: 'var(--paper-2)', flexShrink: 0 }}>
+          <span className="mono" style={{ fontSize: 9.5, letterSpacing: '.14em', textTransform: 'uppercase', color: 'var(--ink-faint)', marginRight: 4 }}>
+            Version
+          </span>
+          {allVersions.map((_, i) => (
+            <button key={i} onClick={() => selectVersion(i)} style={btnStyle(chosen === i)}>{i + 1}</button>
+          ))}
+          <button onClick={() => selectVersion('custom')} style={btnStyle(chosen === 'custom', true)}>Custom</button>
+          {editing && (
+            <span className="mono" style={{ fontSize: 10, color: '#ef4444', marginLeft: 6, fontWeight: 700 }}>editing base</span>
+          )}
+          {!editing && chosen === 'custom' && (
+            <span className="mono" style={{ fontSize: 10, color: 'var(--ink-faint)', marginLeft: 4 }}>CV-specific</span>
+          )}
+        </div>
+
+        {/* Content area */}
+        <div style={{ flex: 1, overflowY: 'auto', padding: '18px 20px' }}>
+          {editing ? (
+            <>
+              <CustomEntryForm section={section} data={editData} setField={setEditField} />
+              <div style={{
+                marginTop: 16, padding: '10px 13px', borderRadius: 8,
+                background: '#fee2e2', border: '1.5px solid #ef4444',
+                fontSize: 12, lineHeight: 1.5, color: '#991b1b',
+              }}>
+                <strong>Warning:</strong> By editing this version, all CVs that use it will also be updated.
+              </div>
+            </>
+          ) : chosen === 'custom' ? (
+            <>
+              <CustomEntryForm section={section} data={customData} setField={setCustomField} />
+              <div style={{
+                marginTop: 16, padding: '10px 13px', borderRadius: 8,
+                background: 'var(--yellow)', border: '1.5px solid var(--ink)',
+                fontSize: 12, lineHeight: 1.5,
+              }}>
+                <strong>Note:</strong> By adding a custom version to this CV, this entry will not be automatically updated if you ever change its base entries.
+              </div>
+            </>
+          ) : (
+            <VersionPreview section={section} data={allVersions[chosen as number]} />
+          )}
+        </div>
+
+        {/* Footer */}
+        <div style={{ display: 'flex', gap: 10, alignItems: 'center', padding: '14px 18px', borderTop: '1.5px solid var(--line)', flexShrink: 0, background: 'var(--paper-2)' }}>
+          {editing ? (
+            <>
+              <button className="btn btn--ghost btn--sm" onClick={() => setEditing(false)}>
+                <Icon name="arrowL" size={13} /> Back
+              </button>
+              <div style={{ flex: 1 }} />
+              <button
+                className="btn btn--sm"
+                onClick={handleSaveToBase}
+                style={{ background: '#ef4444', color: '#fff', border: '1.5px solid #dc2626', boxShadow: '1.5px 1.5px 0 #991b1b' }}
+              >
+                <Icon name="check" size={14} color="#fff" /> Save to Base CV
+              </button>
+            </>
+          ) : (
+            <>
+              <button className="btn btn--ghost btn--sm" onClick={onClose}>Cancel</button>
+              <div style={{ flex: 1 }} />
+              {chosen !== 'custom' && (
+                <button className="btn btn--ghost btn--sm" onClick={handleStartEdit}>
+                  <Icon name="pencil" size={13} /> Edit
+                </button>
+              )}
+              <button className="btn btn--primary btn--sm" onClick={handleApply}>
+                <Icon name="check" size={14} color="var(--paper)" /> Apply
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ---- Compose section (with D&D, version badge, sort button) ---- */
+function parseStartYear(start: string): number {
+  const m = (start || '').match(/\d{4}/);
+  return m ? parseInt(m[0], 10) : 0;
+}
+
 interface ComposeSectionProps {
   base: BaseCV;
   section: string;
   sel: CvSelection;
   setSel: (sel: CvSelection) => void;
+  onVersionPick: (section: string, entryId: string) => void;
 }
 
-function ComposeSection({ base, section, sel, setSel }: ComposeSectionProps) {
+function ComposeSection({ base, section, sel, setSel, onVersionPick }: ComposeSectionProps) {
   const [open, setOpen] = useState(false);
+  const [draggedId, setDraggedId] = useState<string | null>(null);
+  const [dragOverId, setDragOverId] = useState<string | null>(null);
   const m = SECTION_META[section];
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const baseAny = base as any;
   const ids = (sel[section] as string[]) || [];
-  const included = ids
-    .map((id) => (baseAny[section] as { id: string }[] || []).find((x: { id: string }) => x.id === id))
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    .filter(Boolean) as any[];
+  // Use pickItems so labels reflect the active version/custom version, not always v1
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const included = pickItems(base, section as keyof BaseCV, sel) as any[];
 
   const add = (id: string) => setSel({ ...sel, [section]: [...ids, id] } as CvSelection);
-  const remove = (id: string) => setSel({ ...sel, [section]: ids.filter((x) => x !== id) } as CvSelection);
+  const remove = (id: string) => {
+    const newOverrides = { ...(sel.versionOverrides || {}) };
+    const newCustom = { ...(sel.customVersions || {}) };
+    delete newOverrides[id];
+    delete newCustom[id];
+    setSel({
+      ...sel,
+      [section]: ids.filter((x) => x !== id),
+      versionOverrides: Object.keys(newOverrides).length ? newOverrides : undefined,
+      customVersions: Object.keys(newCustom).length ? newCustom : undefined,
+    } as CvSelection);
+  };
+
+  const reorder = (fromId: string, toId: string) => {
+    const arr = [...ids];
+    const from = arr.indexOf(fromId);
+    const to = arr.indexOf(toId);
+    if (from === -1 || to === -1 || from === to) return;
+    arr.splice(from, 1);
+    arr.splice(to, 0, fromId);
+    setSel({ ...sel, [section]: arr } as CvSelection);
+  };
+
+  const orderByRecent = () => {
+    const sorted = [...ids].sort((a, b) => {
+      const ea = included.find((x: any) => x.id === a);
+      const eb = included.find((x: any) => x.id === b);
+      return parseStartYear((eb as any)?.start || '') - parseStartYear((ea as any)?.start || '');
+    });
+    setSel({ ...sel, [section]: sorted } as CvSelection);
+  };
+
+  const getVersionLabel = (entryId: string): string | null => {
+    if (sel.customVersions?.[entryId]) return 'custom';
+    const vIdx = sel.versionOverrides?.[entryId];
+    if (vIdx !== undefined) return `v${vIdx + 1}`;
+    // Show v1 if the entry has multiple versions stored in base
+    const entry = (baseAny[section] as { id: string; versions?: unknown[] }[] || []).find((x: { id: string }) => x.id === entryId);
+    const hasMultipleVersions = ((entry as any)?.versions?.length ?? 0) > 1;
+    if (hasMultipleVersions) return 'v1';
+    return null;
+  };
 
   return (
     <div style={{ marginBottom: 14, borderBottom: '1.5px solid var(--line)', paddingBottom: 14 }}>
@@ -193,6 +599,12 @@ function ComposeSection({ base, section, sel, setSel }: ComposeSectionProps) {
         <span className="serif" style={{ fontSize: 15, fontWeight: 800 }}>{SECTION_TITLES[section]}</span>
         <span className="mono" style={{ fontSize: 10.5, color: 'var(--ink-faint)' }}>{included.length}</span>
         <div style={{ flex: 1 }} />
+        {/* Auto-order by most recent — only for work/experience */}
+        {section === 'work' && ids.length > 1 && (
+          <button className="iconbtn" style={{ width: 28, height: 28 }} title="Order by most recent" onClick={orderByRecent}>
+            <Icon name="sort" size={15} />
+          </button>
+        )}
         <button className="iconbtn" style={{ width: 28, height: 28 }} title="Add from Base CV" onClick={() => setOpen((o) => !o)}>
           <Icon name={open ? 'minus' : 'plus'} size={15} />
         </button>
@@ -200,14 +612,57 @@ function ComposeSection({ base, section, sel, setSel }: ComposeSectionProps) {
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
         {included.map((it) => {
           const lab = itemLabel(section, it);
+          const isDragged = draggedId === it.id;
+          const isTarget = dragOverId === it.id && draggedId !== it.id;
+          const vLabel = getVersionLabel(it.id as string);
+          const isCustomVersion = sel.customVersions?.[it.id as string];
+
           return (
-            <div key={it.id as string} className="row" style={{ gap: 8, padding: '6px 8px', borderRadius: 7, background: 'var(--paper)', border: '1.5px solid var(--line-strong)' }}>
-              <Icon name="grip" size={14} color="var(--ink-faint)" />
+            <div
+              key={it.id as string}
+              draggable
+              onDragStart={() => setDraggedId(it.id as string)}
+              onDragEnd={() => { setDraggedId(null); setDragOverId(null); }}
+              onDragOver={(e) => { e.preventDefault(); setDragOverId(it.id as string); }}
+              onDragLeave={() => setDragOverId(null)}
+              onDrop={(e) => {
+                e.preventDefault();
+                if (draggedId) reorder(draggedId, it.id as string);
+                setDraggedId(null);
+                setDragOverId(null);
+              }}
+              className="row"
+              style={{
+                gap: 8, padding: '6px 8px', borderRadius: 7,
+                background: 'var(--paper)',
+                border: isTarget ? '1.5px solid var(--accent)' : '1.5px solid var(--line-strong)',
+                opacity: isDragged ? 0.4 : 1,
+                cursor: draggedId ? 'grabbing' : 'default',
+                transition: 'border-color .1s, opacity .1s',
+              }}
+            >
+              <Icon name="grip" size={14} color="var(--ink-faint)" style={{ cursor: 'grab', flexShrink: 0 }} />
               <span style={{ minWidth: 0, flex: 1 }}>
                 <span style={{ display: 'block', fontSize: 12.5, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{lab.main}</span>
                 <span className="mono" style={{ fontSize: 10, color: 'var(--ink-faint)' }}>{lab.sub}</span>
               </span>
-              <Icon name="x" size={13} style={{ cursor: 'pointer', opacity: .5 }} onClick={() => remove(it.id as string)} />
+              {/* Version picker button */}
+              <button
+                onClick={() => onVersionPick(section, it.id as string)}
+                title="Pick version"
+                className="mono"
+                style={{
+                  fontSize: 9.5, letterSpacing: '.06em', height: 22, padding: '0 7px',
+                  borderRadius: 5, border: '1.5px solid var(--line-strong)',
+                  background: isCustomVersion ? 'var(--ink)' : 'var(--paper-2)',
+                  color: isCustomVersion ? '#fff' : 'var(--ink-faint)',
+                  cursor: 'pointer', flexShrink: 0,
+                  fontWeight: isCustomVersion ? 700 : 400,
+                }}
+              >
+                {vLabel ?? 'v1'}
+              </button>
+              <Icon name="x" size={13} style={{ cursor: 'pointer', opacity: .5, flexShrink: 0 }} onClick={() => remove(it.id as string)} />
             </div>
           );
         })}
@@ -230,9 +685,12 @@ interface ComposeStepProps {
   draft: BuilderDraft;
   sel: CvSelection;
   setSel: (sel: CvSelection) => void;
+  onSaveBase: (newBase: BaseCV) => void;
 }
 
-function ComposeStep({ base, draft, sel, setSel }: ComposeStepProps) {
+function ComposeStep({ base, draft, sel, setSel, onSaveBase }: ComposeStepProps) {
+  const [versionModal, setVersionModal] = useState<{ section: string; entryId: string } | null>(null);
+
   return (
     <div style={{ display: 'grid', gridTemplateColumns: '390px 1fr', height: '100%', minHeight: 0 }}>
       <div style={{ borderRight: '1.5px solid var(--line)', overflowY: 'auto', padding: '24px 22px 80px', background: 'var(--paper-2)' }}>
@@ -253,7 +711,10 @@ function ComposeStep({ base, draft, sel, setSel }: ComposeStepProps) {
         </div>
 
         {COMPOSE_ORDER.map((s) => (
-          <ComposeSection key={s} base={base} section={s} sel={sel} setSel={setSel} />
+          <ComposeSection
+            key={s} base={base} section={s} sel={sel} setSel={setSel}
+            onVersionPick={(section, entryId) => setVersionModal({ section, entryId })}
+          />
         ))}
       </div>
 
@@ -264,6 +725,18 @@ function ComposeStep({ base, draft, sel, setSel }: ComposeStepProps) {
         </div>
         <FitPaper base={base} style={draft.style as CvStyleId} sel={sel} accent={draft.accent} />
       </div>
+
+      {versionModal && (
+        <VersionPickerModal
+          entryId={versionModal.entryId}
+          section={versionModal.section}
+          base={base}
+          sel={sel}
+          onApply={setSel}
+          onSaveBase={onSaveBase}
+          onClose={() => setVersionModal(null)}
+        />
+      )}
     </div>
   );
 }
@@ -408,6 +881,7 @@ interface TrimmedBuilderProps {
 }
 
 export function TrimmedBuilder({ base, povs, init, onExit, onSave }: TrimmedBuilderProps) {
+  const { setBaseCV } = useStore();
   const startPov = povs.find((p) => p.id === init.povId) || povs[0];
   const [draft, setDraft] = useState<BuilderDraft>({
     povId: startPov.id,
@@ -429,7 +903,9 @@ export function TrimmedBuilder({ base, povs, init, onExit, onSave }: TrimmedBuil
   useEffect(() => {
     if ((step === 'compose' || step === 'export') && !sel) {
       const pov = povs.find((p) => p.id === draft.povId) || povs[0];
-      setSel(defaultSelForFocus(base, pov.focus));
+      // Restore saved selection (with versionOverrides & customVersions) when editing an existing CV
+      const existingCv = pov.cvs.find((c) => c.id === cvId);
+      setSel(existingCv?.selection || defaultSelForFocus(base, pov.focus));
     }
   }, [step]);
 
@@ -513,7 +989,7 @@ export function TrimmedBuilder({ base, povs, init, onExit, onSave }: TrimmedBuil
           <CreationStep base={base} povs={povs} draft={draft} setDraft={setDraft} onContinue={goNext} />
         )}
         {step === 'compose' && sel && (
-          <ComposeStep base={base} draft={draft} sel={sel} setSel={setSel} />
+          <ComposeStep base={base} draft={draft} sel={sel} setSel={setSel} onSaveBase={setBaseCV} />
         )}
         {step === 'export' && sel && (
           <ExportStep base={base} draft={draft} sel={sel} readyToSend={readyToSend} onReadyChange={setReadyToSend} />

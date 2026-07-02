@@ -24,7 +24,25 @@ export function pickItems(base: BaseCV, section: keyof BaseCV, sel: CvSelection)
   const ids = sel[section as string];
   if (!Array.isArray(ids)) return [];
   const all = (base[section] as { id: string }[]) || [];
-  return all.filter((it) => ids.includes(it.id));
+
+  return (ids as string[]).map((id: string) => {
+    // Custom version overrides everything
+    const custom = sel.customVersions?.[id];
+    if (custom) return { ...(custom as Record<string, unknown>), id } as { id: string };
+
+    const entry = all.find((it) => it.id === id) as (Record<string, unknown> & { id: string }) | undefined;
+    if (!entry) return null;
+
+    // Specific version override
+    const vIdx = sel.versionOverrides?.[id];
+    if (vIdx !== undefined) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const versions = (entry as any).versions as ({ id?: string } & Record<string, unknown>)[] | undefined;
+      if (versions?.[vIdx]) return { ...versions[vIdx], id: entry.id } as { id: string };
+    }
+
+    return entry;
+  }).filter(Boolean) as { id: string }[];
 }
 
 export function defaultSelForFocus(base: BaseCV, focus: string | null): CvSelection {
@@ -45,20 +63,28 @@ export function defaultSelForFocus(base: BaseCV, focus: string | null): CvSelect
 /* per-section item renderer */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function CvItem({ section, item }: { section: string; item: any }) {
-  if (section === 'work') return (
-    <div className="cv-item">
-      <div className="cv-item-head">
-        <span className="cv-role">{item.role as string}</span>
-        <span className="cv-meta">{item.start as string}–{item.end as string}</span>
+  if (section === 'work') {
+    // bullets may be a raw string (un-saved version) — handle both
+    const bullets: string[] = Array.isArray(item.bullets)
+      ? item.bullets as string[]
+      : typeof item.bullets === 'string'
+        ? (item.bullets as string).split('\n').filter(Boolean)
+        : [];
+    return (
+      <div className="cv-item">
+        <div className="cv-item-head">
+          <span className="cv-role">{item.role as string}</span>
+          <span className="cv-meta">{item.start as string}–{item.end as string}</span>
+        </div>
+        <div className="cv-sub">{item.org as string}{item.location ? ' · ' + item.location : ''}</div>
+        {bullets.length > 0 && (
+          <ul className="cv-bullets">
+            {bullets.map((b, i) => <li key={i}>{b}</li>)}
+          </ul>
+        )}
       </div>
-      <div className="cv-sub">{item.org as string}{item.location ? ' · ' + item.location : ''}</div>
-      {(item.bullets as string[] || []).length > 0 && (
-        <ul className="cv-bullets">
-          {(item.bullets as string[]).map((b, i) => <li key={i}>{b}</li>)}
-        </ul>
-      )}
-    </div>
-  );
+    );
+  }
 
   if (section === 'education') return (
     <div className="cv-item">

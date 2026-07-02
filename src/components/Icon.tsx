@@ -43,6 +43,7 @@ const ICONS: Record<string, string> = {
   share:     "M4 12v8h16v-8|M12 16V3M7 8l5-5 5 5",
   external:  "M14 4h6v6M20 4l-9 9M18 13v6H5V6h6",
   users:     "M9 11a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7ZM2 21c0-3.3 3-5.5 7-5.5s7 2.2 7 5.5M17 5.2a3.5 3.5 0 0 1 0 6.6M18 15.6c2.4.7 4 2.3 4 5.4",
+  sort:      "M4 6h16M4 11h11M4 16h6|M20 14l-3 3-3-3M17 17V9",
 };
 
 interface IconProps {

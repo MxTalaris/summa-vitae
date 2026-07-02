@@ -34,6 +34,7 @@ export interface EducationEntry {
   start: string;
   end: string;
   note: string;
+  versions?: EducationEntry[];
 }
 
 export interface PortfolioEntry {
@@ -47,6 +48,7 @@ export interface PortfolioEntry {
   url: string;
   images?: string[];
   platform?: string;
+  versions?: PortfolioEntry[];
 }
 
 export interface OtherEntry {
@@ -55,6 +57,7 @@ export interface OtherEntry {
   org: string;
   period: string;
   desc: string;
+  versions?: OtherEntry[];
 }
 
 export interface CertEntry {
@@ -62,6 +65,7 @@ export interface CertEntry {
   name: string;
   org: string;
   year: string;
+  versions?: CertEntry[];
 }
 
 export interface SkillItem {
@@ -80,6 +84,7 @@ export interface LanguageEntry {
   id: string;
   name: string;
   level: string;
+  versions?: LanguageEntry[];
 }
 
 export interface BaseCV {
@@ -133,7 +138,10 @@ export interface CvSelection {
   certs: string[];
   skills: string[];
   languages: string[];
-  [key: string]: string[] | boolean;
+  versionOverrides?: Record<string, number>;
+  customVersions?: Record<string, Record<string, unknown>>;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  [key: string]: any;
 }
 
 export interface BuilderDraft {

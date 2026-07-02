@@ -176,11 +176,21 @@ function VersionedSection({ id, meta, initial, makeBlank, renderFields, addLabel
 }) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [items, setItems] = useState<{ key: string; active: number; versions: any[] }[]>(() =>
-    initial.map((seed) => ({ key: seed.id || mkId(), active: 0, versions: [{ ...seed }] })));
+    initial.map((seed) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { versions: stored, ...seedBase } = seed as any;
+      const versions = Array.isArray(stored) && stored.length > 0
+        // Strip any nested versions fields to keep data flat
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        ? stored.map((v: any) => { const { versions: _v, ...clean } = v; return clean; })
+        : [{ ...seedBase }];
+      return { key: seed.id || mkId(), active: 0, versions };
+    }));
 
   React.useEffect(() => {
+    // Export active version fields + the full versions array so all alternatives are persisted
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    onChange?.(items.map((it: any) => it.versions[it.active]));
+    onChange?.(items.map((it: any) => ({ ...it.versions[it.active], versions: it.versions })));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [items]);
 
@@ -411,6 +421,13 @@ export function BaseCVScreen({ base, onBack, onDone }: BaseCVProps) {
         ...it,
         bullets: toArr(it.bullets, '\n'),
         tags: toArr(it.tags),
+        // Normalize array fields inside every stored version so pickItems never returns raw strings
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        versions: it.versions?.map((v: any) => ({
+          ...v,
+          bullets: toArr(v.bullets, '\n'),
+          tags: toArr(v.tags),
+        })),
       })),
     }));
 
