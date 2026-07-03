@@ -152,8 +152,8 @@ export const SEED_POVS: Pov[] = [
 ];
 
 export const CV_STYLES: CvStyle[] = [
-  { id: "ledger",     name: "Ledger",     blurb: "Single-column, mono labels, hairline rules. Quiet and exacting.", best: "ATS-safe · technical roles" },
-  { id: "broadsheet", name: "Broadsheet", blurb: "Editorial two-column with a serif masthead. Reads like a profile.", best: "Senior / leadership" },
-  { id: "monolith",   name: "Monolith",   blurb: "Bold sidebar, heavy type, one ink accent. Confident and modern.", best: "Design-adjacent · product" },
-  { id: "manuscript", name: "Manuscript", blurb: "Centred classical serif, generous margins. Understated authority.", best: "Academic · research" },
+  { id: "ledger",     name: "Ledger",     blurb: "Single-column, mono labels, hairline rules. Quiet and exacting.", best: "ATS-safe | Clean" },
+  { id: "broadsheet", name: "Broadsheet", blurb: "Editorial two-column with a serif masthead. Reads like a profile.", best: "Senior | Clean" },
+  { id: "monolith",   name: "Monolith",   blurb: "Bold sidebar, heavy type, one ink accent. Confident and modern.", best: "Modern | Stand out" },
+  { id: "manuscript", name: "Manuscript", blurb: "Centred classical serif, generous margins. Understated authority.", best: "ATS-safe | Centered" },
 ];

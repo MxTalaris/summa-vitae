@@ -2,24 +2,11 @@ import { Fragment, useState, useEffect } from 'react';
 import { Icon } from '../components/Icon';
 import { Chip, Kicker, SECTION_META } from '../components/primitives';
 import { FitPaper, defaultSelForFocus, pickItems, SECTION_TITLES, CVDocument } from '../cv/CVRenderer';
+import { COMPOSE_ORDER, itemLabel } from '../cv/ats';
+import { downloadCvPdf, ATS_FRIENDLY_STYLES } from '../lib/pdf';
 import { CV_STYLES } from '../data/seed';
 import { useStore } from '../store/useStore';
 import type { BaseCV, Pov, CvSelection, BuilderDraft, BuildStep, CvStyleId, TrimmedCV } from '../types';
-
-const COMPOSE_ORDER = ['work', 'education', 'portfolio', 'other', 'certs', 'skills', 'languages'];
-
-function itemLabel(section: string, it: Record<string, unknown>): { main: string; sub: string } {
-  switch (section) {
-    case 'work':      return { main: it.role as string, sub: `${it.org} · ${it.start}–${it.end}` };
-    case 'education': return { main: it.degree as string, sub: it.org as string };
-    case 'portfolio': return { main: it.name as string, sub: `${it.role} · ${it.year}` };
-    case 'other':     return { main: it.title as string, sub: `${it.org} · ${it.period}` };
-    case 'certs':     return { main: it.name as string, sub: `${it.org} · ${it.year}` };
-    case 'skills':    return { main: it.group as string, sub: `${(it.items as unknown[]).length} skills` };
-    case 'languages': return { main: it.name as string, sub: it.level as string };
-    default:          return { main: '', sub: '' };
-  }
-}
 
 /* ---- STEP 1: Style picker ---- */
 interface StyleCardProps {
@@ -54,7 +41,9 @@ function StyleCard({ base, style, accent, selected, onPick }: StyleCardProps) {
       <div style={{ padding: '16px 18px 18px', borderTop: '1.5px solid var(--line)' }}>
         <h3 className="serif" style={{ fontSize: 19, fontWeight: 800 }}>{style.name}</h3>
         <p style={{ fontSize: 13, color: 'var(--ink-soft)', lineHeight: 1.45, margin: '7px 0 10px' }}>{style.blurb}</p>
-        <Chip>{style.best}</Chip>
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+          {style.best.split('|').map((tag, i) => <Chip key={i}>{tag.trim()}</Chip>)}
+        </div>
       </div>
     </button>
   );
@@ -976,42 +965,31 @@ function ComposeStep({ base, draft, sel, setSel, onSaveBase }: ComposeStepProps)
 }
 
 /* ---- STEP 3: Export ---- */
-function buildATS(base: BaseCV, sel: CvSelection): string {
-  const g = base.general;
-  const out: string[] = [];
-  out.push(g.name.toUpperCase());
-  out.push(sel.headline || g.title);
-  out.push([g.location, g.email, g.phone].filter(Boolean).join(' | '));
-  const atsLinks = sel.links !== undefined
-    ? (g.links || []).filter((l) => sel.links!.includes(l.url))
-    : (g.links || []);
-  out.push(atsLinks.map((l) => l.label).join(' | '));
-  if (sel.summary !== false) {
-    const vIdx = sel.summaryVersion;
-    const summaryText = (vIdx !== undefined && g.summaryVersions?.[vIdx])
-      ? g.summaryVersions[vIdx]
-      : (g.summaryVersions?.[0] ?? g.summary);
-    if (summaryText) out.push('', 'SUMMARY', summaryText);
-  }
-  COMPOSE_ORDER.forEach((section) => {
-    const items = pickItems(base, section as keyof BaseCV, sel) as Record<string, unknown>[];
-    if (!items.length) return;
-    out.push('', (SECTION_TITLES[section] || section).toUpperCase());
-    items.forEach((it) => {
-      const lab = itemLabel(section, it);
-      if (section === 'work') {
-        out.push(`${it.role} — ${it.org}, ${it.location} (${it.start}–${it.end})`);
-        ((it.bullets as string[]) || []).forEach((b) => out.push('- ' + b));
-      } else if (section === 'skills') {
-        out.push(`${it.group}: ${(it.items as { name: string }[]).map((s) => s.name).join(', ')}`);
-      } else {
-        out.push(`${lab.main} — ${lab.sub}`);
-        if (it.desc) out.push('  ' + it.desc);
-        if (it.note) out.push('  ' + it.note);
-      }
-    });
-  });
-  return out.join('\n');
+function InfoTooltip({ text }: { text: string }) {
+  const [show, setShow] = useState(false);
+  return (
+    <span style={{ position: 'relative', display: 'inline-flex' }}
+      onMouseEnter={() => setShow(true)} onMouseLeave={() => setShow(false)}>
+      <span style={{
+        width: 15, height: 15, borderRadius: '50%', background: 'var(--line-strong)',
+        color: 'var(--ink-soft)', display: 'inline-flex', alignItems: 'center',
+        justifyContent: 'center', fontSize: 9, fontWeight: 700,
+        fontFamily: 'var(--mono)', cursor: 'help', flexShrink: 0,
+      }}>?</span>
+      {show && (
+        <div style={{
+          position: 'absolute', bottom: 'calc(100% + 8px)', left: '50%',
+          transform: 'translateX(-50%)', width: 260,
+          padding: '10px 12px', background: 'var(--night)',
+          color: 'rgba(244,236,219,.85)', borderRadius: 8,
+          fontSize: 11.5, lineHeight: 1.55,
+          boxShadow: 'var(--shadow-lg)', zIndex: 99, pointerEvents: 'none',
+        }}>
+          {text}
+        </div>
+      )}
+    </span>
+  );
 }
 
 interface ExportStepProps {
@@ -1023,7 +1001,8 @@ interface ExportStepProps {
 }
 
 function ExportStep({ base, draft, sel, readyToSend, onReadyChange }: ExportStepProps) {
-  const [showATS, setShowATS] = useState(false);
+  const [atsOptimize, setAtsOptimize] = useState(false);
+  const isAtsFriendly = ATS_FRIENDLY_STYLES.has(draft.style as CvStyleId);
   const styleName = (CV_STYLES.find((x) => x.id === draft.style) || {}).name;
 
   return (
@@ -1063,42 +1042,47 @@ function ExportStep({ base, draft, sel, readyToSend, onReadyChange }: ExportStep
           </div>
         </label>
 
-        <button className="btn btn--primary btn--lg" style={{ width: '100%', justifyContent: 'center', marginTop: 14 }}>
+        <label style={{
+          display: 'flex', alignItems: 'flex-start', gap: 10,
+          cursor: isAtsFriendly ? 'default' : 'pointer',
+          margin: '12px 0 0', padding: '12px 14px',
+          border: '1.5px solid var(--line-strong)', borderRadius: 'var(--r)',
+          background: 'var(--paper)', opacity: isAtsFriendly ? 0.65 : 1,
+        }}>
+          <input type="checkbox"
+            checked={isAtsFriendly ? true : atsOptimize}
+            onChange={(e) => { if (!isAtsFriendly) setAtsOptimize(e.target.checked); }}
+            disabled={isAtsFriendly}
+            style={{ width: 16, height: 16, accentColor: 'var(--accent)', cursor: isAtsFriendly ? 'default' : 'pointer', flexShrink: 0, marginTop: 2 }}
+          />
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 13.5, fontWeight: 600 }}>
+              Optimize for ATS
+              {!isAtsFriendly && (
+                <InfoTooltip text="This design contains columns. By checking this box, we'll convert your PDF into a hidden layer of text, which will be read by AI easily, and convert your design to a flat image for humans to see. MOST NEW ATS READERS WON'T REQUIRE THIS FEATURE, so only check this box if you find it really necessary." />
+              )}
+            </div>
+            {isAtsFriendly ? (
+              <div className="mono" style={{ fontSize: 10.5, color: 'var(--teal)', marginTop: 2 }}>
+                ✔ This design is already ATS-friendly!
+              </div>
+            ) : (
+              <div className="mono" style={{ fontSize: 10.5, color: 'var(--ink-faint)', marginTop: 2 }}>
+                {atsOptimize ? 'Design will be flattened to image' : 'Visual text is extractable by parsers'}
+              </div>
+            )}
+          </div>
+        </label>
+
+        <button className="btn btn--primary btn--lg" style={{ width: '100%', justifyContent: 'center', marginTop: 14 }}
+          onClick={() => downloadCvPdf(base, draft.style as CvStyleId, sel, draft.accent, draft.name, atsOptimize)}>
           <Icon name="download" size={18} color="var(--paper)" /> Download PDF
         </button>
+        {/* TODO: URL sharing — re-enable when Summa Sharing is wired up
         <button className="btn btn--ghost" style={{ width: '100%', justifyContent: 'center', marginTop: 10 }}>
           <Icon name="link" size={15} /> Copy shareable link
         </button>
-
-        <div className="grain" style={{
-          position: 'relative', overflow: 'hidden', marginTop: 26,
-          background: 'var(--night)', color: 'var(--paper)', borderRadius: 'var(--r-lg)', padding: '18px 18px 16px',
-        }}>
-          <div style={{ position: 'relative', zIndex: 1 }}>
-            <div className="row" style={{ gap: 9 }}>
-              <Icon name="bot" size={18} color="var(--yellow)" />
-              <span className="serif" style={{ fontWeight: 800, fontSize: 15, color: 'var(--paper)' }}>Hidden ATS layer</span>
-              <span className="chip chip--teal" style={{ marginLeft: 'auto' }}>
-                <Icon name="check" size={11} /> on
-              </span>
-            </div>
-            <p style={{ fontSize: 12.5, lineHeight: 1.5, color: 'rgba(244,236,219,.72)', margin: '10px 0 12px' }}>
-              We embed a clean, machine-readable copy behind the styled document. ATS bots parse this; humans see the design above.
-            </p>
-            <button className="btn btn--sm" style={{ background: 'transparent', color: 'var(--paper)', borderColor: 'rgba(244,236,219,.4)', boxShadow: 'none' }}
-              onClick={() => setShowATS((s) => !s)}>
-              <Icon name={showATS ? 'eye' : 'doc'} size={13} color="var(--paper)" />
-              {showATS ? 'Hide' : 'Inspect'} machine copy
-            </button>
-          </div>
-        </div>
-
-        {showATS && (
-          <pre className="mono sv-pop" style={{
-            marginTop: 12, background: '#16120e', color: '#cfe8d8',
-            fontSize: 10.5, lineHeight: 1.55, padding: 14, borderRadius: 8, overflow: 'auto', maxHeight: 320, whiteSpace: 'pre-wrap',
-          }}>{buildATS(base, sel)}</pre>
-        )}
+        */}
       </div>
     </div>
   );

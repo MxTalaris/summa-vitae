@@ -84,6 +84,7 @@
 .cvdoc--monolith .cv-aside .cv-role,
 .cvdoc--monolith .cv-aside .cv-sub { color: #e8e1d2; }
 .cvdoc--monolith .cv-aside .cv-meta { color: #9b9382; }
+.cvdoc--monolith .cv-aside .cv-bullets li { color: #9b9382; }
 .cvdoc--monolith .cv-main .cv-sec-title { color: var(--mono-accent, #ff2d7e); border-bottom: 2px solid currentColor; padding-bottom: 5px; display: inline-block; }
 .cvdoc--monolith .cv-summary { font-size: 13px; }
 .cvdoc--monolith .cv-role { font-size: 15px; }

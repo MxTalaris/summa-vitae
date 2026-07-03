@@ -37,7 +37,8 @@ export function Sidebar({ nav, onNav, povs, onNewPov, onNewCv, onOpenCv, userNam
   const items: [string, string, string][] = [
     ['home',    'home',  'Studio'],
     ['base',    'doc',   'Base CV'],
-    ['sharing', 'share', 'Summa Sharing'],
+    // TODO: URL sharing — re-enable when Summa Sharing is wired up
+    // ['sharing', 'share', 'Summa Sharing'],
   ];
 
   return (
