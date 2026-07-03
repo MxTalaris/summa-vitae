@@ -212,23 +212,30 @@ export default function App() {
 
   // ── Drive sync ────────────────────────────────────────────────────────────
 
-  const syncWithDrive = async (token: string): Promise<void> => {
+  const syncWithDrive = async (token: string): Promise<'imported' | 'pushed' | 'in-sync' | 'conflict'> => {
     const existingId = driveFileId ?? await findDriveFile(token);
 
     if (!existingId) {
-      // No remote file — push local up
+      if (!hasLocalData) return 'in-sync'; // nothing local, nothing remote
       const newId = await writeDriveData(token, makeRemoteData());
       setDriveFileId(newId);
-      return;
+      return 'pushed';
     }
 
     setDriveFileId(existingId);
     const remote = await readDriveData(token, existingId);
 
+    // No local data but remote has data — silently pull from Google
+    if (!hasLocalData && remote.lastSaved) {
+      setBaseCV(remote.baseCV as BaseCV);
+      setPovs(remote.povs as Pov[]);
+      return 'imported';
+    }
+
     if (!remote.lastSaved || remote.lastSaved === lastSaved) {
       // Remote has no timestamp, or already in sync — push local
       await writeDriveData(token, makeRemoteData(), existingId);
-      return;
+      return 'in-sync';
     }
 
     // Real conflict
@@ -243,6 +250,7 @@ export default function App() {
         cvCount: cvCount(remote.povs as Pov[]),
       },
     });
+    return 'conflict';
   };
 
   const makeRemoteData = (): RemoteData => ({
@@ -289,8 +297,9 @@ export default function App() {
       const user = await getGoogleUser(token);
       setGoogleSession(token, { name: user.name, email: user.email });
       login('google');
-      setScreen(isNewUser ? 'home-new' : 'home');
-      await syncWithDrive(token);
+      const result = await syncWithDrive(token);
+      // 'imported' means we just pulled data from Google — always go to home (data is present)
+      setScreen(result === 'imported' || !isNewUser ? 'home' : 'home-new');
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       if (msg !== 'popup_closed') setAuthError(msg); // ignore deliberate cancel

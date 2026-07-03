@@ -518,7 +518,7 @@ export function Home({ base, povs, empty, onEditBase, onNewPov, onNewCv, onPrevi
         <div>
           <div className="kicker">{greet}</div>
           <h1 className="serif" style={{ fontSize: 38, fontWeight: 800, letterSpacing: '-.02em', marginTop: 8 }}>
-            {base.general.name.split(' ')[0]}'s studio
+            {base.general.name ? `${base.general.name.split(' ')[0]}'s studio` : 'My Studio'}
           </h1>
         </div>
         <button className="btn btn--accent" onClick={onNewPov}>
