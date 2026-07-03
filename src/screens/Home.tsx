@@ -319,10 +319,14 @@ interface BaseCardProps {
 }
 
 function BaseCard({ base, empty, onEdit, highlight }: BaseCardProps) {
-  const counts = empty ? 0 :
-    (base.work.length + base.education.length + base.portfolio.length +
-     base.other.length + base.certs.length + base.skills.length + base.languages.length);
-  const completeness = empty ? 0 : 92;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const allEntries: any[] = empty ? [] : [
+    ...base.work, ...base.education, ...base.portfolio,
+    ...base.other, ...base.certs, ...base.skills, ...base.languages,
+  ];
+  const entryCount = allEntries.length;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const variationCount = allEntries.filter((e: any) => Array.isArray(e.versions) && e.versions.length >= 2).length;
   return (
     <div className="grain" style={{
       position: 'relative', overflow: 'hidden',
@@ -356,9 +360,8 @@ function BaseCard({ base, empty, onEdit, highlight }: BaseCardProps) {
             </button>
             {!empty && (
               <div style={{ display: 'flex', gap: 24 }}>
-                <Stat n={counts} label="entries" />
-                <Stat n={8} label="sections" />
-                <Stat n={completeness + '%'} label="complete" />
+                <Stat n={entryCount} label="entries" />
+                <Stat n={variationCount} label="variations" />
               </div>
             )}
           </div>

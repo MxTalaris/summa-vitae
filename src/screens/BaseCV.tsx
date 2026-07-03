@@ -5,6 +5,7 @@ import type { BaseCV, SkillGroup, SkillItem } from '../types';
 
 const BASE_SECTIONS: [string, string][] = [
   ['general',   'General Info'],
+  ['contact',   'Contact'],
   ['work',      'Work Experience'],
   ['education', 'Education'],
   ['portfolio', 'Portfolio'],
@@ -398,20 +399,41 @@ export function BaseCVScreen({ base, onBack, onDone }: BaseCVProps) {
   const [draft, setDraft] = useState<BaseCV>(() => JSON.parse(JSON.stringify(base)));
   const g = draft.general;
 
+  const [summaryVersions, setSummaryVersions] = useState<string[]>(() => {
+    const stored = base.general.summaryVersions;
+    return (stored && stored.length > 0) ? stored : [base.general.summary || ''];
+  });
+  const [activeSummaryV, setActiveSummaryV] = useState(0);
+
   const setGen = (field: keyof typeof g, val: string) =>
     setDraft((d) => ({ ...d, general: { ...d.general, [field]: val } }));
 
-  const setLink = (kind: 'github' | 'link', url: string) =>
-    setDraft((d) => {
-      const others = d.general.links.filter((l) => l.kind !== kind);
-      return {
-        ...d,
-        general: {
-          ...d.general,
-          links: url ? [...others, { kind, label: kind === 'github' ? 'GitHub' : 'Website', url }] : others,
-        },
-      };
-    });
+  const setLinkAt = (i: number, field: 'label' | 'url', val: string) =>
+    setDraft((d) => ({
+      ...d,
+      general: {
+        ...d.general,
+        links: d.general.links.map((l, j) => j === i ? { ...l, [field]: val } : l),
+      },
+    }));
+
+  const removeLink = (i: number) =>
+    setDraft((d) => ({
+      ...d,
+      general: {
+        ...d.general,
+        links: d.general.links.filter((_, j) => j !== i),
+      },
+    }));
+
+  const addLink = () =>
+    setDraft((d) => ({
+      ...d,
+      general: {
+        ...d.general,
+        links: [...d.general.links, { kind: 'link' as const, label: '', url: '' }],
+      },
+    }));
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const setWork = (items: any[]) =>
@@ -480,7 +502,14 @@ export function BaseCVScreen({ base, onBack, onDone }: BaseCVProps) {
           </div>
         </div>
         <div style={{ flex: 1 }} />
-        <button className="btn btn--primary" onClick={() => onDone(draft)}>
+        <button className="btn btn--primary" onClick={() => onDone({
+          ...draft,
+          general: {
+            ...draft.general,
+            summary: summaryVersions[0] || '',
+            summaryVersions,
+          },
+        })}>
           <Icon name="check" size={16} color="var(--paper)" /> Save &amp; Done
         </button>
       </header>
@@ -530,21 +559,69 @@ export function BaseCVScreen({ base, onBack, onDone }: BaseCVProps) {
             <SectionShell id="general" meta={SECTION_META.general} refCb={(el) => el && (secRefs.current.general = el)}>
               <FRow>
                 <CF label="Full name" value={g.name} onChange={(v) => setGen('name', v)} />
-                <CF label="Headline / title" value={g.title} onChange={(v) => setGen('title', v)} />
+                <CF label="Pronouns" value={g.pronouns || ''} onChange={(v) => setGen('pronouns', v)} ph="they/them" />
               </FRow>
               <Gap h={14} />
+              <div className="sv-pop" style={{
+                border: '1.5px solid var(--line-strong)', borderRadius: 'var(--r)',
+                background: 'var(--paper)', overflow: 'hidden',
+              }}>
+                <div style={{
+                  display: 'flex', alignItems: 'center', gap: 10, padding: '9px 12px 9px 14px',
+                  borderBottom: '1.5px solid var(--line)', background: 'var(--paper-2)',
+                }}>
+                  <VersionBar
+                    count={summaryVersions.length}
+                    active={activeSummaryV}
+                    onSelect={setActiveSummaryV}
+                    onAdd={() => {
+                      const newIdx = summaryVersions.length;
+                      setSummaryVersions((vs) => [...vs, vs[activeSummaryV] || '']);
+                      setActiveSummaryV(newIdx);
+                    }}
+                  />
+                </div>
+                <div style={{ padding: '16px 16px 6px' }}>
+                  <div className="field">
+                    <label>Professional summary</label>
+                    <textarea className="textarea" rows={5}
+                      value={summaryVersions[activeSummaryV] || ''}
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        setSummaryVersions((vs) => vs.map((s, i) => i === activeSummaryV ? v : s));
+                      }} />
+                  </div>
+                </div>
+              </div>
+            </SectionShell>
+
+            {/* CONTACT */}
+            <SectionShell id="contact" meta={SECTION_META.contact} refCb={(el) => el && (secRefs.current.contact = el)}>
               <FRow>
                 <CF label="Location" value={g.location} onChange={(v) => setGen('location', v)} />
                 <CF label="Email" value={g.email} onChange={(v) => setGen('email', v)} />
               </FRow>
               <Gap h={14} />
-              <FRow cols="1fr 1fr 1fr">
-                <CF label="Phone" value={g.phone} onChange={(v) => setGen('phone', v)} />
-                <CF label="GitHub" value={g.links.find((l) => l.kind === 'github')?.url || ''} onChange={(v) => setLink('github', v)} />
-                <CF label="Website" value={g.links.find((l) => l.kind === 'link')?.url || ''} onChange={(v) => setLink('link', v)} />
-              </FRow>
-              <Gap h={14} />
-              <CF label="Professional summary" value={g.summary} onChange={(v) => setGen('summary', v)} area full />
+              <CF label="Phone" value={g.phone} onChange={(v) => setGen('phone', v)} />
+              <Gap h={18} />
+              <div className="field">
+                <label>External links</label>
+              </div>
+              {g.links.map((link, i) => (
+                <div key={i} style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
+                  <input className="input" value={link.label} placeholder="Website"
+                    onChange={(e) => setLinkAt(i, 'label', e.target.value)}
+                    style={{ flex: '0 0 140px' }} />
+                  <input className="input" value={link.url} placeholder="https://..."
+                    onChange={(e) => setLinkAt(i, 'url', e.target.value)}
+                    style={{ flex: 1 }} />
+                  <button className="iconbtn" onClick={() => removeLink(i)} title="Remove link"
+                    style={{ width: 38, height: 38, flexShrink: 0 }}>
+                    <Icon name="trash" size={14} />
+                  </button>
+                </div>
+              ))}
+              <AddBtn label="Add link" onClick={addLink} />
             </SectionShell>
 
             {/* WORK */}
@@ -698,7 +775,32 @@ export function BaseCVScreen({ base, onBack, onDone }: BaseCVProps) {
               renderFields={(d, set) => (
                 <FRow>
                   <CF label="Language" value={d.name} onChange={(v) => set('name', v)} />
-                  <CF label="Proficiency" value={d.level} onChange={(v) => set('level', v)} />
+                  <div className="field">
+                    <label>Proficiency</label>
+                    <select className="input" value={d.level || ''} onChange={(e) => set('level', e.target.value)}>
+                      <option value="">— select level —</option>
+                      <optgroup label="Plain Description">
+                        <option value="Basic">Basic</option>
+                        <option value="Conversational">Conversational</option>
+                        <option value="Proficient">Proficient</option>
+                        <option value="Fluent">Fluent</option>
+                        <option value="Native">Native</option>
+                      </optgroup>
+                      <optgroup label="CEFR Framework">
+                        <option value="A1 - Beginner">A1 — Beginner</option>
+                        <option value="A2 - Elementary">A2 — Elementary</option>
+                        <option value="B1 - Intermediate">B1 — Intermediate</option>
+                        <option value="B2 - Upper-Intermediate">B2 — Upper-Intermediate</option>
+                        <option value="C1 - Advanced">C1 — Advanced</option>
+                        <option value="C2 - Proficiency">C2 — Proficiency</option>
+                      </optgroup>
+                      {d.level && !['Basic','Conversational','Proficient','Fluent','Native',
+                        'A1 - Beginner','A2 - Elementary','B1 - Intermediate',
+                        'B2 - Upper-Intermediate','C1 - Advanced','C2 - Proficiency'].includes(d.level) && (
+                        <option value={d.level} disabled>{d.level}</option>
+                      )}
+                    </select>
+                  </div>
                 </FRow>
               )} />
           </div>

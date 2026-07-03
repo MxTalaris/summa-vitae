@@ -522,6 +522,238 @@ function VersionPickerModal({ entryId, section, base, sel, onApply, onSaveBase, 
   );
 }
 
+/* ---- Summary version modal ---- */
+function SummaryVersionModal({ base, sel, onApply, onClose }: {
+  base: BaseCV;
+  sel: CvSelection;
+  onApply: (s: CvSelection) => void;
+  onClose: () => void;
+}) {
+  const summaryVersions = base.general.summaryVersions?.length
+    ? base.general.summaryVersions
+    : [base.general.summary || ''];
+
+  const isCustom = sel.customSummary !== undefined;
+  const [chosen, setChosen] = useState<number | 'custom'>(isCustom ? 'custom' : (sel.summaryVersion ?? 0));
+  const [customText, setCustomText] = useState<string>(isCustom ? (sel.customSummary ?? '') : (summaryVersions[0] ?? ''));
+
+  const btnStyle = (active: boolean, wide = false) => ({
+    height: 28, padding: wide ? '0 12px' : '0', width: wide ? 'auto' : 28,
+    borderRadius: 6, cursor: 'pointer',
+    fontSize: wide ? 11 : 12, fontWeight: 700, fontFamily: 'var(--mono)',
+    border: active ? '1.5px solid var(--ink)' : '1.5px solid var(--line-strong)',
+    background: active ? (wide ? 'var(--ink)' : 'var(--accent)') : 'var(--card)',
+    color: active ? '#fff' : 'var(--ink-soft)',
+    boxShadow: active ? '1.5px 1.5px 0 var(--ink)' : 'none', transition: 'all .1s',
+  });
+
+  const handleApply = () => {
+    if (chosen === 'custom') {
+      onApply({ ...sel, customSummary: customText, summaryVersion: undefined });
+    } else {
+      onApply({ ...sel, summaryVersion: chosen, customSummary: undefined });
+    }
+    onClose();
+  };
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.48)', display: 'grid', placeItems: 'center', zIndex: 999 }}
+      onClick={onClose}>
+      <div style={{
+        background: 'var(--card)', borderRadius: 'var(--r-lg)', border: '1.5px solid var(--ink)',
+        boxShadow: 'var(--shadow)', width: 560, maxWidth: '92vw',
+        maxHeight: '82vh', display: 'flex', flexDirection: 'column', overflow: 'hidden',
+      }} onClick={(e) => e.stopPropagation()}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '14px 18px', borderBottom: '1.5px solid var(--line)', flexShrink: 0 }}>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontWeight: 700, fontSize: 15 }}>Professional summary</div>
+            <div className="mono" style={{ fontSize: 10.5, color: 'var(--ink-faint)' }}>General Info</div>
+          </div>
+          <button className="iconbtn" onClick={onClose}><Icon name="x" size={16} /></button>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '12px 18px', borderBottom: '1.5px solid var(--line)', background: 'var(--paper-2)', flexShrink: 0 }}>
+          <span className="mono" style={{ fontSize: 9.5, letterSpacing: '.14em', textTransform: 'uppercase', color: 'var(--ink-faint)', marginRight: 4 }}>Version</span>
+          {summaryVersions.map((_, i) => (
+            <button key={i} onClick={() => setChosen(i)} style={btnStyle(chosen === i)}>{i + 1}</button>
+          ))}
+          <button onClick={() => setChosen('custom')} style={btnStyle(chosen === 'custom', true)}>Custom</button>
+          {chosen === 'custom' && (
+            <span className="mono" style={{ fontSize: 10, color: 'var(--ink-faint)', marginLeft: 4 }}>CV-specific</span>
+          )}
+        </div>
+        <div style={{ flex: 1, overflowY: 'auto', padding: '18px 20px' }}>
+          {chosen === 'custom' ? (
+            <>
+              <textarea className="textarea" value={customText} rows={6}
+                onChange={(e) => setCustomText(e.target.value)}
+                placeholder="Write a CV-specific summary…"
+                style={{ width: '100%' }} />
+              <div style={{
+                marginTop: 12, padding: '10px 13px', borderRadius: 8,
+                background: 'var(--yellow)', border: '1.5px solid var(--ink)',
+                fontSize: 12, lineHeight: 1.5,
+              }}>
+                <strong>Note:</strong> This custom summary is saved only to this CV and won't update automatically from your base versions.
+              </div>
+            </>
+          ) : (
+            <p style={{ fontSize: 14, lineHeight: 1.65, color: 'var(--ink-soft)', margin: 0 }}>
+              {summaryVersions[chosen as number] || <em style={{ opacity: .5 }}>No text yet</em>}
+            </p>
+          )}
+        </div>
+        <div style={{ display: 'flex', gap: 10, alignItems: 'center', padding: '14px 18px', borderTop: '1.5px solid var(--line)', flexShrink: 0, background: 'var(--paper-2)' }}>
+          <button className="btn btn--ghost btn--sm" onClick={onClose}>Cancel</button>
+          <div style={{ flex: 1 }} />
+          <button className="btn btn--primary btn--sm" onClick={handleApply}>
+            <Icon name="check" size={14} color="var(--paper)" /> Apply
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ---- Summary compose section ---- */
+function SummaryComposeSection({ base, sel, setSel }: { base: BaseCV; sel: CvSelection; setSel: (s: CvSelection) => void }) {
+  const [modal, setModal] = useState(false);
+  const included = sel.summary !== false;
+  const isCustom = sel.customSummary !== undefined;
+  const vLabel = isCustom ? 'custom' : `v${(sel.summaryVersion ?? 0) + 1}`;
+
+  const summaryVersions = base.general.summaryVersions?.length
+    ? base.general.summaryVersions
+    : [base.general.summary || ''];
+  const activeV = isCustom ? 0 : (sel.summaryVersion ?? 0);
+  const previewText = isCustom
+    ? (sel.customSummary ?? '')
+    : (summaryVersions[activeV] ?? '');
+
+  return (
+    <>
+      <div style={{ marginBottom: 14, borderBottom: '1.5px solid var(--line)', paddingBottom: 14 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 9 }}>
+          <Icon name="user" size={15} color="var(--pink)" />
+          <span className="serif" style={{ fontSize: 15, fontWeight: 800 }}>Summary</span>
+          <span className="mono" style={{ fontSize: 10.5, color: 'var(--ink-faint)' }}>{included ? 1 : 0}</span>
+          <div style={{ flex: 1 }} />
+          <button className="iconbtn" style={{ width: 28, height: 28 }} title={included ? 'Remove' : 'Add'}
+            onClick={() => setSel({ ...sel, summary: !included })}>
+            <Icon name={included ? 'minus' : 'plus'} size={15} />
+          </button>
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          {included ? (
+            <div className="row" style={{ gap: 8, padding: '6px 8px', borderRadius: 7, background: 'var(--paper)', border: '1.5px solid var(--line-strong)' }}>
+              <span style={{ minWidth: 0, flex: 1 }}>
+                <span style={{ display: 'block', fontSize: 12.5, fontWeight: 600 }}>Professional summary</span>
+                <span className="mono" style={{ fontSize: 10, color: 'var(--ink-faint)' }}>
+                  {previewText ? previewText.slice(0, 72) + (previewText.length > 72 ? '…' : '') : 'No text yet'}
+                </span>
+              </span>
+              <button onClick={() => setModal(true)} title="Pick version" className="mono"
+                style={{
+                  fontSize: 9.5, letterSpacing: '.06em', height: 22, padding: '0 7px',
+                  borderRadius: 5, border: '1.5px solid var(--line-strong)',
+                  background: isCustom ? 'var(--ink)' : 'var(--paper-2)',
+                  color: isCustom ? '#fff' : 'var(--ink-faint)',
+                  cursor: 'pointer', flexShrink: 0, fontWeight: isCustom ? 700 : 400,
+                }}>{vLabel}</button>
+              <Icon name="x" size={13} style={{ cursor: 'pointer', opacity: .5, flexShrink: 0 }}
+                onClick={() => setSel({ ...sel, summary: false, customSummary: undefined, summaryVersion: undefined })} />
+            </div>
+          ) : (
+            <button onClick={() => setSel({ ...sel, summary: true })} className="mono" style={{
+              fontSize: 11.5, color: 'var(--ink-faint)', border: '1.5px dashed var(--line-strong)',
+              borderRadius: 7, padding: '8px', cursor: 'pointer', background: 'transparent', textAlign: 'center', width: '100%',
+            }}>
+              <Icon name="plus" size={12} /> nothing here yet — pull from your record
+            </button>
+          )}
+        </div>
+      </div>
+      {modal && <SummaryVersionModal base={base} sel={sel} onApply={setSel} onClose={() => setModal(false)} />}
+    </>
+  );
+}
+
+/* ---- Links compose section ---- */
+function LinksComposeSection({ base, sel, setSel }: { base: BaseCV; sel: CvSelection; setSel: (s: CvSelection) => void }) {
+  const [open, setOpen] = useState(false);
+  const allLinks = base.general.links || [];
+  const includedUrls: string[] = sel.links ?? allLinks.map((l) => l.url);
+  const includedLinks = allLinks.filter((l) => includedUrls.includes(l.url));
+  const availableLinks = allLinks.filter((l) => !includedUrls.includes(l.url));
+
+  const add = (url: string) => { setSel({ ...sel, links: [...includedUrls, url] }); };
+  const remove = (url: string) => { setSel({ ...sel, links: includedUrls.filter((u) => u !== url) }); };
+
+  return (
+    <div style={{ marginBottom: 14, borderBottom: '1.5px solid var(--line)', paddingBottom: 14 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 9 }}>
+        <Icon name="link" size={15} color="var(--blue)" />
+        <span className="serif" style={{ fontSize: 15, fontWeight: 800 }}>Links</span>
+        <span className="mono" style={{ fontSize: 10.5, color: 'var(--ink-faint)' }}>{includedLinks.length}</span>
+        <div style={{ flex: 1 }} />
+        <button className="iconbtn" style={{ width: 28, height: 28 }} title="Add link"
+          onClick={() => setOpen((o) => !o)}>
+          <Icon name={open ? 'minus' : 'plus'} size={15} />
+        </button>
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+        {includedLinks.map((link) => (
+          <div key={link.url} className="row" style={{ gap: 8, padding: '6px 8px', borderRadius: 7, background: 'var(--paper)', border: '1.5px solid var(--line-strong)' }}>
+            <span style={{ minWidth: 0, flex: 1 }}>
+              <span style={{ display: 'block', fontSize: 12.5, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{link.label || link.url}</span>
+              <span className="mono" style={{ fontSize: 10, color: 'var(--ink-faint)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{link.url}</span>
+            </span>
+            <Icon name="x" size={13} style={{ cursor: 'pointer', opacity: .5, flexShrink: 0 }}
+              onClick={() => remove(link.url)} />
+          </div>
+        ))}
+        {includedLinks.length === 0 && (
+          <button onClick={() => setOpen(true)} className="mono" style={{
+            fontSize: 11.5, color: 'var(--ink-faint)', border: '1.5px dashed var(--line-strong)',
+            borderRadius: 7, padding: '8px', cursor: 'pointer', background: 'transparent', textAlign: 'center', width: '100%',
+          }}>
+            <Icon name="plus" size={12} /> nothing here yet — pull from your record
+          </button>
+        )}
+      </div>
+      {open && (
+        <div className="card sv-pop" style={{ marginTop: 8, padding: 10, borderColor: 'var(--ink)', boxShadow: 'var(--shadow)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '2px 6px 8px' }}>
+            <span className="mono" style={{ fontSize: 10.5, letterSpacing: '.12em', textTransform: 'uppercase', color: 'var(--ink-faint)' }}>
+              From your Base CV · Links
+            </span>
+            <Icon name="x" size={14} style={{ cursor: 'pointer' }} onClick={() => setOpen(false)} />
+          </div>
+          {availableLinks.length === 0 ? (
+            <div style={{ padding: '14px 8px', textAlign: 'center' }}>
+              <span className="mono" style={{ fontSize: 12, color: 'var(--ink-faint)' }}>All links are already included.</span>
+            </div>
+          ) : availableLinks.map((link) => (
+            <button key={link.url} onClick={() => { add(link.url); setOpen(false); }} style={{
+              width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '9px 10px',
+              border: 0, borderRadius: 7, cursor: 'pointer', background: 'transparent', textAlign: 'left', transition: 'background .1s',
+            }}
+              onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--paper-2)')}
+              onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}>
+              <span style={{ width: 24, height: 24, borderRadius: 6, background: 'var(--teal)', color: '#fff', display: 'grid', placeItems: 'center', flexShrink: 0 }}>
+                <Icon name="plus" size={14} color="#fff" />
+              </span>
+              <span style={{ minWidth: 0 }}>
+                <span style={{ display: 'block', fontSize: 13.5, fontWeight: 600 }}>{link.label || link.url}</span>
+                <span className="mono" style={{ fontSize: 10.5, color: 'var(--ink-faint)' }}>{link.url}</span>
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* ---- Compose section (with D&D, version badge, sort button) ---- */
 function parseStartYear(start: string): number {
   const m = (start || '').match(/\d{4}/);
@@ -702,13 +934,15 @@ function ComposeStep({ base, draft, sel, setSel, onSaveBase }: ComposeStepProps)
           Hit <Icon name="plus" size={12} style={{ verticalAlign: '-1px' }} /> on any section to add entries from your Base CV.
         </p>
 
-        <div className="row" style={{ gap: 8, padding: '10px 12px', borderRadius: 8, background: 'var(--card)', border: '1.5px solid var(--line-strong)', marginBottom: 18 }}>
-          <Icon name="user" size={15} color="var(--pink)" />
-          <span style={{ flex: 1, fontSize: 13, fontWeight: 600 }}>Professional summary</span>
-          <button className="twk-toggle" data-on={sel.summary !== false ? '1' : '0'}
-            style={{ cursor: 'pointer' }}
-            onClick={() => setSel({ ...sel, summary: !sel.summary })}><i /></button>
+        <div className="field" style={{ marginBottom: 18 }}>
+          <label>Headline</label>
+          <input className="input" value={sel.headline || ''}
+            placeholder="Custom role headline for this CV"
+            onChange={(e) => setSel({ ...sel, headline: e.target.value })} />
         </div>
+
+        <SummaryComposeSection base={base} sel={sel} setSel={setSel} />
+        <LinksComposeSection base={base} sel={sel} setSel={setSel} />
 
         {COMPOSE_ORDER.map((s) => (
           <ComposeSection
@@ -746,10 +980,19 @@ function buildATS(base: BaseCV, sel: CvSelection): string {
   const g = base.general;
   const out: string[] = [];
   out.push(g.name.toUpperCase());
-  out.push(g.title);
+  out.push(sel.headline || g.title);
   out.push([g.location, g.email, g.phone].filter(Boolean).join(' | '));
-  out.push((g.links || []).map((l) => l.label).join(' | '));
-  if (sel.summary !== false) { out.push('', 'SUMMARY', g.summary); }
+  const atsLinks = sel.links !== undefined
+    ? (g.links || []).filter((l) => sel.links!.includes(l.url))
+    : (g.links || []);
+  out.push(atsLinks.map((l) => l.label).join(' | '));
+  if (sel.summary !== false) {
+    const vIdx = sel.summaryVersion;
+    const summaryText = (vIdx !== undefined && g.summaryVersions?.[vIdx])
+      ? g.summaryVersions[vIdx]
+      : (g.summaryVersions?.[0] ?? g.summary);
+    if (summaryText) out.push('', 'SUMMARY', summaryText);
+  }
   COMPOSE_ORDER.forEach((section) => {
     const items = pickItems(base, section as keyof BaseCV, sel) as Record<string, unknown>[];
     if (!items.length) return;

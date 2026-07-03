@@ -167,13 +167,70 @@ function CvSection({ section, items }: { section: string; items: any[] }) {
   );
 }
 
-function CvContact({ g }: { g: BaseCV['general'] }) {
-  return (
-    <div className="cv-contact">
+function toHref(url: string): string {
+  if (!url || /^https?:\/\//i.test(url)) return url;
+  return 'https://' + url;
+}
+
+function CvContact({ g, linkedUrls, style }: { g: BaseCV['general']; linkedUrls?: string[]; style: string }) {
+  const links = linkedUrls !== undefined
+    ? (g.links || []).filter((l) => linkedUrls.includes(l.url))
+    : (g.links || []);
+
+  const basics = (
+    <>
+      {g.pronouns && <span>{g.pronouns}</span>}
       {g.location && <span>{g.location}</span>}
       {g.email && <span>{g.email}</span>}
       {g.phone && <span>{g.phone}</span>}
-      {(g.links || []).map((l, i) => <span key={i}>{l.label}</span>)}
+    </>
+  );
+
+  // Monolith: each link on its own row — icon + URL (only URL is the link)
+  if (style === 'monolith') {
+    return (
+      <div className="cv-contact">
+        {basics}
+        {links.map((l, i) => (
+          <span key={i}>
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, opacity: .7 }}>
+              <path d="M14 4h6v6M20 4l-9 9M18 13v6H5V6h6" />
+            </svg>
+            <a href={toHref(l.url)} target="_blank" rel="noreferrer">{l.url}</a>
+          </span>
+        ))}
+      </div>
+    );
+  }
+
+  // Broadsheet + Manuscript: links on a new centred row, URL only, separated by |
+  if (style === 'broadsheet' || style === 'manuscript') {
+    return (
+      <div className="cv-contact">
+        {basics}
+        {links.length > 0 && (
+          <div style={{ width: '100%', textAlign: 'center', marginTop: 2 }}>
+            {links.map((l, i) => (
+              <React.Fragment key={l.url}>
+                {i > 0 && ' | '}
+                <a href={toHref(l.url)} target="_blank" rel="noreferrer">{l.url}</a>
+              </React.Fragment>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // Ledger: "Label: URL" — label is plain text, only the URL itself is the link
+  return (
+    <div className="cv-contact">
+      {basics}
+      {links.map((l, i) => (
+        <span key={i}>
+          {l.label}: <a href={toHref(l.url)} target="_blank" rel="noreferrer">{l.url}</a>
+        </span>
+      ))}
     </div>
   );
 }
@@ -193,14 +250,22 @@ interface CVDocumentProps {
 export function CVDocument({ base, style, sel }: CVDocumentProps) {
   const L = CV_LAYOUTS[style] || CV_LAYOUTS.ledger;
   const g = base.general;
-  const showSummary = sel.summary !== false && !!g.summary;
+  const headline = sel.headline ?? g.title;
+  const summaryText = (() => {
+    if (sel.customSummary !== undefined) return sel.customSummary;
+    const vIdx = sel.summaryVersion;
+    if (vIdx !== undefined && g.summaryVersions?.[vIdx] !== undefined) return g.summaryVersions[vIdx];
+    if (g.summaryVersions?.[0]) return g.summaryVersions[0];
+    return g.summary;
+  })();
+  const showSummary = sel.summary !== false && !!summaryText;
 
   const head = (
     <header className="cv-head">
       <h1 className="cv-name">{g.name}</h1>
-      <div className="cv-title">{g.title}</div>
-      <CvContact g={g} />
-      {L.summaryInHead && showSummary && <p className="cv-summary">{g.summary}</p>}
+      <div className="cv-title">{headline}</div>
+      <CvContact g={g} linkedUrls={sel.links} style={style} />
+      {L.summaryInHead && showSummary && <p className="cv-summary">{summaryText}</p>}
     </header>
   );
 
@@ -223,12 +288,12 @@ export function CVDocument({ base, style, sel }: CVDocumentProps) {
       <>
         <aside className="cv-aside">
           <h1 className="cv-name">{g.name}</h1>
-          <div className="cv-title">{g.title}</div>
-          <CvContact g={g} />
+          <div className="cv-title">{headline}</div>
+          <CvContact g={g} linkedUrls={sel.links} style={style} />
           {renderSecList(base, L.side!, sel)}
         </aside>
         <main className="cv-main">
-          {showSummary && <p className="cv-summary">{g.summary}</p>}
+          {showSummary && <p className="cv-summary">{summaryText}</p>}
           {renderSecList(base, L.main!, sel)}
         </main>
       </>

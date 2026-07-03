@@ -7,11 +7,13 @@ export interface Link {
 export interface General {
   name: string;
   title: string;
+  pronouns?: string;
   location: string;
   email: string;
   phone: string;
   links: Link[];
   summary: string;
+  summaryVersions?: string[];
 }
 
 export interface WorkEntry {
@@ -130,7 +132,11 @@ export interface Pov {
 }
 
 export interface CvSelection {
+  headline?: string;
   summary: boolean;
+  summaryVersion?: number;
+  customSummary?: string;
+  links?: string[];
   work: string[];
   education: string[];
   portfolio: string[];

@@ -20,6 +20,8 @@
 .cv-title  { color: #444; }
 .cv-contact { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12px; color: #555; }
 .cv-contact span { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
+.cvdoc a { color: inherit; text-decoration: underline; text-underline-offset: 2px; text-decoration-color: rgba(0,0,0,.22); }
+.cvdoc--monolith .cv-aside a { text-decoration-color: rgba(255,255,255,.25); }
 .cv-summary { line-height: 1.55; color: #333; }
 
 .cv-sec { margin-top: 22px; }

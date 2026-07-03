@@ -65,6 +65,7 @@ export function ToggleSwitch({ on, onClick, style }: ToggleSwitchProps) {
 /* Section meta for Base CV */
 export const SECTION_META: Record<string, { icon: string; tone: string; label: string }> = {
   general:   { icon: 'user',      tone: 'pink',   label: 'General Info' },
+  contact:   { icon: 'mail',      tone: 'blue',   label: 'Contact' },
   work:      { icon: 'briefcase', tone: 'blue',   label: 'Work Experience' },
   education: { icon: 'cap',       tone: 'teal',   label: 'Education' },
   portfolio: { icon: 'layers',    tone: 'yellow', label: 'Portfolio' },
