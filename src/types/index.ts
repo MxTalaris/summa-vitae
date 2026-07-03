@@ -158,3 +158,5 @@ export interface BuilderDraft {
 }
 
 export type BuildStep = 'create' | 'compose' | 'export';
+
+export type AuthProvider = 'none' | 'github' | 'google';

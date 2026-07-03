@@ -1,9 +1,9 @@
-import { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Icon } from '../components/Icon';
 import { Chip } from '../components/primitives';
 import { CVThumb } from '../cv/CVRenderer';
 import { defaultSelForFocus } from '../cv/CVRenderer';
-import type { BaseCV, Pov, TrimmedCV, AccentColor } from '../types';
+import type { BaseCV, Pov, TrimmedCV, AccentColor, AuthProvider } from '../types';
 import { CV_STYLES } from '../data/seed';
 
 /* ---- Sidebar ---- */
@@ -15,9 +15,25 @@ interface SidebarProps {
   onNewCv: (pov: Pov) => void;
   onOpenCv: (pov: Pov, cv: TrimmedCV) => void;
   userName: string;
+  authProvider: AuthProvider;
+  onLoginGoogle: () => void;
+  onLogout: () => void;
 }
 
-export function Sidebar({ nav, onNav, povs, onNewPov, onNewCv, onOpenCv, userName }: SidebarProps) {
+export function Sidebar({ nav, onNav, povs, onNewPov, onNewCv, onOpenCv, userName, authProvider, onLoginGoogle, onLogout }: SidebarProps) {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [menuOpen]);
   const items: [string, string, string][] = [
     ['home',    'home',  'Studio'],
     ['base',    'doc',   'Base CV'],
@@ -103,23 +119,65 @@ export function Sidebar({ nav, onNav, povs, onNewPov, onNewCv, onOpenCv, userNam
       </div>
 
       <div style={{ flex: 1, minHeight: 18 }} />
-      <div className="card" style={{ padding: 12, display: 'flex', alignItems: 'center', gap: 10 }}>
-        <span style={{
-          width: 36, height: 36, borderRadius: 9, background: 'var(--ink)', color: 'var(--paper)',
-          display: 'grid', placeItems: 'center', fontFamily: 'var(--serif)', fontWeight: 800, fontSize: 16,
-        }}>
-          {userName.charAt(0)}
-        </span>
-        <div style={{ minWidth: 0 }}>
-          <div style={{ fontSize: 13, fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-            {userName}
+
+      {/* User card with context menu */}
+      <div ref={menuRef} style={{ position: 'relative' }}>
+        {menuOpen && (
+          <div style={{
+            position: 'absolute', bottom: 'calc(100% + 8px)', left: 0, right: 0,
+            background: 'var(--card)', border: '1.5px solid var(--ink)', borderRadius: 10,
+            boxShadow: 'var(--shadow-lg)', padding: '6px 0', zIndex: 50,
+          }}>
+            {authProvider === 'none' && (
+              <button onClick={() => { setMenuOpen(false); onLoginGoogle(); }} style={menuItemStyle}>
+                <Icon name="google" size={15} /> Log in with Google
+              </button>
+            )}
+            {authProvider === 'google' && (
+              <button onClick={() => { setMenuOpen(false); onLogout(); }} style={menuItemStyle}>
+                <Icon name="google" size={15} /> Log out of Google
+              </button>
+            )}
+            <hr style={{ margin: '6px 0', border: 0, borderTop: '1px solid var(--line)' }} />
+            <button onClick={() => { setMenuOpen(false); onLogout(); }} style={{ ...menuItemStyle, color: 'var(--ink-soft)' }}>
+              <Icon name="x" size={14} color="currentColor" /> Sign out
+            </button>
           </div>
-          <div className="mono" style={{ fontSize: 10, color: 'var(--ink-faint)' }}>Free plan</div>
+        )}
+        <div
+          className="card"
+          onClick={() => setMenuOpen((o) => !o)}
+          style={{ padding: 12, display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', userSelect: 'none' }}
+        >
+          <span style={{
+            width: 36, height: 36, borderRadius: 9, background: 'var(--ink)', color: 'var(--paper)',
+            display: 'grid', placeItems: 'center', fontFamily: 'var(--serif)', fontWeight: 800, fontSize: 16,
+            flexShrink: 0,
+          }}>
+            {userName.charAt(0) || 'Σ'}
+          </span>
+          <div style={{ minWidth: 0, flex: 1 }}>
+            <div style={{ fontSize: 13, fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              {userName || 'Anonymous'}
+            </div>
+            <div className="mono" style={{ fontSize: 10, color: 'var(--ink-faint)' }}>
+              {authProvider === 'none' ? 'Local only' : 'Google'}
+            </div>
+          </div>
+          <Icon name="chevD" size={14} color="var(--ink-faint)" style={{ flexShrink: 0 }} />
         </div>
       </div>
     </aside>
   );
 }
+
+const menuItemStyle: React.CSSProperties = {
+  display: 'flex', alignItems: 'center', gap: 9,
+  width: '100%', textAlign: 'left', padding: '8px 14px',
+  background: 'transparent', border: 0, cursor: 'pointer',
+  fontFamily: 'var(--sans)', fontSize: 13, color: 'var(--ink)',
+  transition: 'background .1s',
+};
 
 /* ---- New POV modal ---- */
 interface NewPovModalProps {
