@@ -8,6 +8,7 @@ import { SummaSharing } from './screens/SummaSharing';
 import { Icon } from './components/Icon';
 import {
   requestGoogleToken,
+  requestGoogleTokenSilent,
   getGoogleUser,
   findDriveFile,
   readDriveData,
@@ -314,8 +315,19 @@ export default function App() {
 
     const run = async () => {
       lastDriveCheckRef.current = Date.now();
-      if (!googleToken) return;
-      try { await checkDriveForUpdates(googleToken); }
+      let token = googleToken;
+      // After a page refresh the token is null (not persisted). Try a silent re-auth using
+      // the persisted email so we can still check Drive without interrupting the user.
+      if (!token && authProvider === 'google' && googleUser?.email) {
+        try {
+          token = await requestGoogleTokenSilent(googleUser.email);
+          setGoogleSession(token, googleUser);
+        } catch {
+          return; // Google session expired — skip silently, user must log in again
+        }
+      }
+      if (!token) return;
+      try { await checkDriveForUpdates(token); }
       catch (err) { console.error('Home Drive check failed', err); }
     };
     run();
