@@ -23,17 +23,21 @@ interface GsiTokenClient {
   requestAccessToken(): void;
 }
 
+interface GsiTokenClientConfig {
+  client_id: string;
+  scope: string;
+  prompt?: string;
+  hint?: string;
+  callback: (r: GsiTokenResponse) => void;
+  error_callback?: (e: { type: string }) => void;
+}
+
 declare global {
   interface Window {
     google?: {
       accounts: {
         oauth2: {
-          initTokenClient(config: {
-            client_id: string;
-            scope: string;
-            callback: (r: GsiTokenResponse) => void;
-            error_callback?: (e: { type: string }) => void;
-          }): GsiTokenClient;
+          initTokenClient(config: GsiTokenClientConfig): GsiTokenClient;
         };
       };
     };
@@ -82,6 +86,26 @@ export async function requestGoogleToken(): Promise<string> {
           reject(new Error(`Google auth error: ${e.type}`));
         }
       },
+    });
+    client.requestAccessToken();
+  });
+}
+
+/** Tries to get a token silently (no account picker) using the user's known email.
+ *  Works when the browser still has a live Google session. Throws if interaction is required. */
+export async function requestGoogleTokenSilent(hint: string): Promise<string> {
+  await loadGSI();
+  return new Promise((resolve, reject) => {
+    const client = window.google!.accounts.oauth2.initTokenClient({
+      client_id: CLIENT_ID,
+      scope: SCOPES,
+      hint,
+      prompt: '',
+      callback: (resp) => {
+        if (resp.error) reject(new Error(resp.error_description ?? resp.error));
+        else resolve(resp.access_token);
+      },
+      error_callback: (e) => reject(new Error(e.type)),
     });
     client.requestAccessToken();
   });

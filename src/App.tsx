@@ -8,6 +8,7 @@ import { SummaSharing } from './screens/SummaSharing';
 import { Icon } from './components/Icon';
 import {
   requestGoogleToken,
+  requestGoogleTokenSilent,
   getGoogleUser,
   findDriveFile,
   readDriveData,
@@ -261,6 +262,28 @@ export default function App() {
     povs,
   });
 
+  // ── Read-only Drive check: only shows conflict if remote is strictly newer ──
+
+  const checkDriveForUpdates = async (token: string) => {
+    const existingId = driveFileId ?? await findDriveFile(token);
+    if (!existingId) return;
+    if (existingId !== driveFileId) setDriveFileId(existingId);
+    const remote = await readDriveData(token, existingId);
+    if (!remote.lastSaved || remote.lastSaved === lastSaved) return;
+    if (lastSaved && remote.lastSaved < lastSaved) return; // local is already newer
+    setConflictData({
+      fileId: existingId,
+      remoteRaw: remote,
+      remote: {
+        label: 'Google Drive',
+        lastSaved: remote.lastSaved,
+        entries: entryCount(remote.baseCV as BaseCV),
+        variations: variationCount(remote.baseCV as BaseCV),
+        cvCount: cvCount(remote.povs as Pov[]),
+      },
+    });
+  };
+
   // ── Auto-save to Drive when local data changes ────────────────────────────
 
   const lastSavedRef = useRef(lastSaved);
@@ -278,6 +301,31 @@ export default function App() {
     }, 2000);
     return () => clearTimeout(id);
   });
+
+  // ── Home screen Drive check ───────────────────────────────────────────────
+
+  const lastDriveCheckRef = useRef(0);
+  const prevScreenRef = useRef<Screen | null>(null);
+
+  useEffect(() => {
+    const arrivedAtHome = (screen === 'home' || screen === 'home-new') && prevScreenRef.current !== screen;
+    prevScreenRef.current = screen;
+    if (!arrivedAtHome) return;
+    if (Date.now() - lastDriveCheckRef.current < 10_000) return; // skip right after login sync
+
+    const run = async () => {
+      lastDriveCheckRef.current = Date.now();
+      let token = googleToken;
+      if (!token && googleUser?.email) {
+        try { token = await requestGoogleTokenSilent(googleUser.email); setGoogleSession(token, googleUser); }
+        catch { return; }
+      }
+      if (!token) return;
+      try { await checkDriveForUpdates(token); }
+      catch (err) { console.error('Home Drive check failed', err); }
+    };
+    run();
+  }, [screen]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Auth flow ─────────────────────────────────────────────────────────────
 
@@ -298,6 +346,7 @@ export default function App() {
       const user = await getGoogleUser(token);
       setGoogleSession(token, { name: user.name, email: user.email });
       login('google');
+      lastDriveCheckRef.current = Date.now(); // prevent home-screen effect from double-checking
       const result = await syncWithDrive(token);
       // 'imported' means we just pulled data from Google — always go to home (data is present)
       setScreen(result === 'imported' || !isNewUser ? 'home' : 'home-new');
