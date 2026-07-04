@@ -1308,7 +1308,7 @@ export function TrimmedBuilder({ base, povs, init, onExit, onSave }: TrimmedBuil
         <span className="builder-cv-name mono" style={{ fontSize: 11.5, color: 'var(--ink-faint)', maxWidth: 200, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
           {draft.name || 'Untitled CV'}
         </span>
-        {canSave && (
+        {canSave && step !== 'export' && (
           <button className="btn btn--sm btn--ghost" onClick={() => { onSave(draft.povId, buildCv('draft')); setDirty(false); }} title="Save as draft">
             <Icon name="doc" size={14} /> Save Draft
           </button>

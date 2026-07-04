@@ -100,7 +100,7 @@ export async function requestGoogleTokenSilent(hint: string): Promise<string> {
       client_id: CLIENT_ID,
       scope: SCOPES,
       hint,
-      prompt: '',
+      prompt: 'none',
       callback: (resp) => {
         if (resp.error) reject(new Error(resp.error_description ?? resp.error));
         else resolve(resp.access_token);

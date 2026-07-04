@@ -243,6 +243,90 @@ export function NewPovModal({ onClose, onCreate }: NewPovModalProps) {
   );
 }
 
+/* ---- Confirm modal ---- */
+interface ConfirmModalProps {
+  title: string;
+  body: string;
+  confirmLabel?: string;
+  onConfirm: () => void;
+  onCancel: () => void;
+}
+
+function ConfirmModal({ title, body, confirmLabel = 'Delete', onConfirm, onCancel }: ConfirmModalProps) {
+  return (
+    <div style={{
+      position: 'fixed', inset: 0, zIndex: 200, background: 'rgba(22,18,14,.55)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24,
+    }} onClick={onCancel}>
+      <div className="card sv-pop" style={{ width: 380, padding: '28px 28px 24px', borderColor: 'var(--ink)', borderWidth: 2 }}
+        onClick={(e) => e.stopPropagation()}>
+        <h3 className="serif" style={{ fontSize: 21, fontWeight: 800, marginBottom: 10 }}>{title}</h3>
+        <p style={{ fontSize: 14, color: 'var(--ink-soft)', lineHeight: 1.5, marginBottom: 22 }}>{body}</p>
+        <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+          <button className="btn btn--ghost btn--sm" onClick={onCancel}>Cancel</button>
+          <button className="btn btn--sm" style={{ background: '#ef4444', color: '#fff', borderColor: '#ef4444' }}
+            onClick={onConfirm}>{confirmLabel}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ---- Edit POV modal ---- */
+interface EditPovModalProps {
+  pov: Pov;
+  onClose: () => void;
+  onSave: (data: { name: string; accent: AccentColor }) => void;
+}
+
+function EditPovModal({ pov, onClose, onSave }: EditPovModalProps) {
+  const [name, setName] = useState(pov.name);
+  const [accent, setAccent] = useState<AccentColor>(pov.accent);
+  const accents: AccentColor[] = ['pink', 'blue', 'teal', 'yellow', 'orange'];
+
+  return (
+    <div style={{
+      position: 'fixed', inset: 0, zIndex: 200, background: 'rgba(22,18,14,.5)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24,
+    }} onClick={onClose}>
+      <div className="card sv-pop" style={{ width: 440, padding: 28, borderColor: 'var(--ink)', borderWidth: 2 }}
+        onClick={(e) => e.stopPropagation()}>
+        <div className="kicker">Edit point of view</div>
+        <h3 className="serif" style={{ fontSize: 24, fontWeight: 800, margin: '8px 0 4px', letterSpacing: '-.01em' }}>
+          Rename lens
+        </h3>
+        <p className="muted" style={{ fontSize: 13.5, marginBottom: 20 }}>
+          Update the name and accent colour for this POV.
+        </p>
+        <div className="field" style={{ marginBottom: 16 }}>
+          <label>POV name</label>
+          <input className="input" autoFocus value={name} placeholder="e.g. Engineering Management"
+            onChange={(e) => setName(e.target.value)} />
+        </div>
+        <div className="field" style={{ marginBottom: 24 }}>
+          <label>Accent</label>
+          <div style={{ display: 'flex', gap: 10 }}>
+            {accents.map((a) => (
+              <button key={a} onClick={() => setAccent(a)} style={{
+                width: 34, height: 34, borderRadius: 8,
+                background: `var(--${a})`, cursor: 'pointer',
+                border: accent === a ? '2.5px solid var(--ink)' : '1.5px solid var(--line-strong)',
+                boxShadow: accent === a ? '2px 2px 0 var(--ink)' : 'none',
+              }} />
+            ))}
+          </div>
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+          <button className="btn btn--ghost" onClick={onClose}>Cancel</button>
+          <button className="btn btn--primary" disabled={!name} onClick={() => onSave({ name, accent })}>
+            Save
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ---- CV card ---- */
 const STATUS_TONE: Record<string, 'teal' | 'yellow' | 'blue'> = {
   ready: 'teal', draft: 'yellow', sent: 'blue',
@@ -254,58 +338,69 @@ interface CvCardProps {
   cv: TrimmedCV;
   onPreview: (pov: Pov, cv: TrimmedCV) => void;
   onEdit: (pov: Pov, cv: TrimmedCV) => void;
-  onExport: (pov: Pov, cv: TrimmedCV) => void;
+  onDuplicate: (pov: Pov, cv: TrimmedCV) => void;
   onDelete: (pov: Pov, cv: TrimmedCV) => void;
 }
 
-function CvCard({ base, pov, cv, onPreview, onEdit, onExport, onDelete }: CvCardProps) {
+function CvCard({ base, pov, cv, onPreview, onEdit, onDuplicate, onDelete }: CvCardProps) {
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const sel = defaultSelForFocus(base, pov.focus);
   const styleName = (CV_STYLES.find((s) => s.id === cv.style) || {}).name || cv.style;
   return (
-    <div className="card sv-pop" style={{ padding: 14, display: 'flex', gap: 16, alignItems: 'stretch' }}>
-      <CVThumb base={base} style={cv.style} sel={sel} w={104} accent={pov.accent} />
-      <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10 }}>
-          <div style={{ minWidth: 0, flex: 1 }}>
-            <div className="serif" style={{
-              fontWeight: 800, fontSize: 17, letterSpacing: '-.01em',
-              whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-            }}>{cv.name}</div>
-            <div className="mono" style={{
-              fontSize: 11, color: 'var(--ink-faint)', marginTop: 4,
-              whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-            }}>
-              {cv.role} · {cv.pages} pp · {cv.sections} sections
+    <>
+      {confirmDelete && (
+        <ConfirmModal
+          title="Delete CV"
+          body={`"${cv.name}" will be permanently deleted.`}
+          onConfirm={() => { setConfirmDelete(false); onDelete(pov, cv); }}
+          onCancel={() => setConfirmDelete(false)}
+        />
+      )}
+      <div className="card sv-pop" style={{ padding: 14, display: 'flex', gap: 16, alignItems: 'stretch' }}>
+        <CVThumb base={base} style={cv.style} sel={sel} w={104} accent={pov.accent} />
+        <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10 }}>
+            <div style={{ minWidth: 0, flex: 1 }}>
+              <div className="serif" style={{
+                fontWeight: 800, fontSize: 17, letterSpacing: '-.01em',
+                whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+              }}>{cv.name}</div>
+              <div className="mono" style={{
+                fontSize: 11, color: 'var(--ink-faint)', marginTop: 4,
+                whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+              }}>
+                {cv.role} · {cv.pages} pp · {cv.sections} sections
+              </div>
             </div>
+            <Chip tone={STATUS_TONE[cv.status]}>{cv.status}</Chip>
           </div>
-          <Chip tone={STATUS_TONE[cv.status]}>{cv.status}</Chip>
-        </div>
-        <div style={{ display: 'flex', gap: 7, marginTop: 8, flexWrap: 'wrap' }}>
-          <Chip>{styleName}</Chip>
-          <span className="mono" style={{ fontSize: 10.5, color: 'var(--ink-faint)', alignSelf: 'center' }}>
-            <Icon name="clock" size={12} style={{ verticalAlign: '-2px', marginRight: 4 }} />
-            updated {cv.updated}
-          </span>
-        </div>
-        <div style={{ flex: 1 }} />
-        <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
-          <button className="btn btn--sm" onClick={() => onEdit(pov, cv)}>
-            <Icon name="pencil" size={14} /> Edit
-          </button>
-          <button className="btn btn--sm btn--ghost" onClick={() => onPreview(pov, cv)}>
-            <Icon name="eye" size={14} /> Preview
-          </button>
-          <button className="btn btn--sm btn--ghost" onClick={() => onExport(pov, cv)} title="Export / download">
-            <Icon name="download" size={14} />
-          </button>
+          <div style={{ display: 'flex', gap: 7, marginTop: 8, flexWrap: 'wrap' }}>
+            <Chip>{styleName}</Chip>
+            <span className="mono" style={{ fontSize: 10.5, color: 'var(--ink-faint)', alignSelf: 'center' }}>
+              <Icon name="clock" size={12} style={{ verticalAlign: '-2px', marginRight: 4 }} />
+              updated {cv.updated}
+            </span>
+          </div>
           <div style={{ flex: 1 }} />
-          <button className="btn btn--sm btn--ghost" onClick={() => onDelete(pov, cv)} title="Delete CV"
-            style={{ color: 'var(--ink-faint)' }}>
-            <Icon name="trash" size={14} />
-          </button>
+          <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
+            <button className="btn btn--sm" onClick={() => onEdit(pov, cv)}>
+              <Icon name="pencil" size={14} /> Edit
+            </button>
+            <button className="btn btn--sm btn--ghost" onClick={() => onPreview(pov, cv)}>
+              <Icon name="eye" size={14} /> Preview
+            </button>
+            <button className="btn btn--sm btn--ghost" onClick={() => onDuplicate(pov, cv)} title="Duplicate CV">
+              <Icon name="copy" size={14} />
+            </button>
+            <div style={{ flex: 1 }} />
+            <button className="btn btn--sm btn--ghost" onClick={() => setConfirmDelete(true)} title="Delete CV"
+              style={{ color: 'var(--ink-faint)' }}>
+              <Icon name="trash" size={14} />
+            </button>
+          </div>
         </div>
       </div>
-    </div>
+    </>
   );
 }
 
@@ -342,41 +437,66 @@ interface PovGroupProps {
   onNewCv: (pov: Pov) => void;
   onPreview: (pov: Pov, cv: TrimmedCV) => void;
   onEdit: (pov: Pov, cv: TrimmedCV) => void;
-  onExport: (pov: Pov, cv: TrimmedCV) => void;
+  onDuplicateCv: (pov: Pov, cv: TrimmedCV) => void;
   onDeletePov: (pov: Pov) => void;
   onDeleteCv: (pov: Pov, cv: TrimmedCV) => void;
+  onEditPov: (pov: Pov, data: { name: string; accent: AccentColor }) => void;
 }
 
-function PovGroup({ base, pov, idx, onNewCv, onPreview, onEdit, onExport, onDeletePov, onDeleteCv }: PovGroupProps) {
+function PovGroup({ base, pov, idx, onNewCv, onPreview, onEdit, onDuplicateCv, onDeletePov, onDeleteCv, onEditPov }: PovGroupProps) {
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
+
   return (
-    <section className="sv-enter" style={{ marginTop: idx === 0 ? 0 : 36, animationDelay: `${idx * 60}ms` }}>
-      <div className="pov-group-header" style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
-        <span style={{
-          width: 11, height: 11, borderRadius: 3, background: `var(--${pov.accent})`,
-          boxShadow: '1.5px 1.5px 0 var(--ink)', flexShrink: 0,
-        }} />
-        <h3 className="serif" style={{ fontSize: 21, fontWeight: 800, letterSpacing: '-.01em' }}>{pov.name}</h3>
-        <Chip>{pov.cvs.length} {pov.cvs.length === 1 ? 'CV' : 'CVs'}</Chip>
-        <span className="muted" style={{ fontSize: 13, marginLeft: 2 }}>{pov.desc}</span>
-        <div style={{ flex: 1 }} />
-        <div className="pov-header-actions" style={{ display: 'flex', gap: 8 }}>
-          <button className="btn btn--sm btn--ghost" onClick={() => onNewCv(pov)}>
-            <Icon name="plus" size={14} /> New CV
+    <>
+      {confirmDelete && (
+        <ConfirmModal
+          title="Delete POV"
+          body={`"${pov.name}" and all ${pov.cvs.length} CV${pov.cvs.length === 1 ? '' : 's'} inside it will be permanently deleted.`}
+          onConfirm={() => { setConfirmDelete(false); onDeletePov(pov); }}
+          onCancel={() => setConfirmDelete(false)}
+        />
+      )}
+      {editOpen && (
+        <EditPovModal
+          pov={pov}
+          onClose={() => setEditOpen(false)}
+          onSave={(data) => { setEditOpen(false); onEditPov(pov, data); }}
+        />
+      )}
+      <section className="sv-enter" style={{ marginTop: idx === 0 ? 0 : 36, animationDelay: `${idx * 60}ms` }}>
+        <div className="pov-group-header" style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
+          <span style={{
+            width: 11, height: 11, borderRadius: 3, background: `var(--${pov.accent})`,
+            boxShadow: '1.5px 1.5px 0 var(--ink)', flexShrink: 0,
+          }} />
+          <h3 className="serif" style={{ fontSize: 21, fontWeight: 800, letterSpacing: '-.01em' }}>{pov.name}</h3>
+          <button className="iconbtn" onClick={() => setEditOpen(true)} title="Edit POV"
+            style={{ width: 22, height: 22, borderRadius: 6, opacity: 0.4 }}>
+            <Icon name="pencil" size={13} />
           </button>
-          <button className="btn btn--sm btn--ghost" onClick={() => onDeletePov(pov)} title="Delete POV"
-            style={{ color: 'var(--ink-faint)' }}>
-            <Icon name="trash" size={14} />
-          </button>
+          <Chip>{pov.cvs.length} {pov.cvs.length === 1 ? 'CV' : 'CVs'}</Chip>
+          <span className="muted" style={{ fontSize: 13, marginLeft: 2 }}>{pov.desc}</span>
+          <div style={{ flex: 1 }} />
+          <div className="pov-header-actions" style={{ display: 'flex', gap: 8 }}>
+            <button className="btn btn--sm btn--ghost" onClick={() => onNewCv(pov)}>
+              <Icon name="plus" size={14} /> New CV
+            </button>
+            <button className="btn btn--sm btn--ghost" onClick={() => setConfirmDelete(true)} title="Delete POV"
+              style={{ color: 'var(--ink-faint)' }}>
+              <Icon name="trash" size={14} />
+            </button>
+          </div>
         </div>
-      </div>
-      <div className="pov-cv-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 16 }}>
-        {pov.cvs.map((cv) => (
-          <CvCard key={cv.id} base={base} pov={pov} cv={cv}
-            onPreview={onPreview} onEdit={onEdit} onExport={onExport} onDelete={onDeleteCv} />
-        ))}
-        <NewCvCard accent={pov.accent} onClick={() => onNewCv(pov)} />
-      </div>
-    </section>
+        <div className="pov-cv-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 16 }}>
+          {pov.cvs.map((cv) => (
+            <CvCard key={cv.id} base={base} pov={pov} cv={cv}
+              onPreview={onPreview} onEdit={onEdit} onDuplicate={onDuplicateCv} onDelete={onDeleteCv} />
+          ))}
+          <NewCvCard accent={pov.accent} onClick={() => onNewCv(pov)} />
+        </div>
+      </section>
+    </>
   );
 }
 
@@ -511,12 +631,13 @@ interface HomeProps {
   onNewCv: (pov: Pov) => void;
   onPreview: (pov: Pov, cv: TrimmedCV) => void;
   onEdit: (pov: Pov, cv: TrimmedCV) => void;
-  onExport: (pov: Pov, cv: TrimmedCV) => void;
+  onDuplicateCv: (pov: Pov, cv: TrimmedCV) => void;
+  onEditPov: (pov: Pov, data: { name: string; accent: AccentColor }) => void;
   onDeletePov: (pov: Pov) => void;
   onDeleteCv: (pov: Pov, cv: TrimmedCV) => void;
 }
 
-export function Home({ base, povs, empty, onEditBase, onNewPov, onNewCv, onPreview, onEdit, onExport, onDeletePov, onDeleteCv }: HomeProps) {
+export function Home({ base, povs, empty, onEditBase, onNewPov, onNewCv, onPreview, onEdit, onDuplicateCv, onEditPov, onDeletePov, onDeleteCv }: HomeProps) {
   const [tour, setTour] = useState(empty ? 0 : -1);
   const hour = new Date().getHours();
   const greet = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
@@ -566,8 +687,8 @@ export function Home({ base, povs, empty, onEditBase, onNewPov, onNewCv, onPrevi
         <div style={{ marginTop: 18 }}>
           {povs.map((pov, i) => (
             <PovGroup key={pov.id} base={base} pov={pov} idx={i}
-              onNewCv={onNewCv} onPreview={onPreview} onEdit={onEdit} onExport={onExport}
-              onDeletePov={onDeletePov} onDeleteCv={onDeleteCv} />
+              onNewCv={onNewCv} onPreview={onPreview} onEdit={onEdit} onDuplicateCv={onDuplicateCv}
+              onDeletePov={onDeletePov} onDeleteCv={onDeleteCv} onEditPov={onEditPov} />
           ))}
         </div>
       )}

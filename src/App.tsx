@@ -8,7 +8,6 @@ import { SummaSharing } from './screens/SummaSharing';
 import { Icon } from './components/Icon';
 import {
   requestGoogleToken,
-  requestGoogleTokenSilent,
   getGoogleUser,
   findDriveFile,
   readDriveData,
@@ -286,21 +285,21 @@ export default function App() {
 
   // ── Auto-save to Drive when local data changes ────────────────────────────
 
-  const lastSavedRef = useRef(lastSaved);
   useEffect(() => {
-    if (lastSavedRef.current === lastSaved) return;
-    lastSavedRef.current = lastSaved;
-    if (!googleToken || !driveFileId || !lastSaved) return;
-
+    if (!googleToken || !lastSaved) return;
+    const snapshot = makeRemoteData();
+    const token = googleToken;
+    const fid = driveFileId; // capture; may be null if file not yet created
     const id = setTimeout(async () => {
       try {
-        await writeDriveData(googleToken, makeRemoteData(), driveFileId);
+        const returnedId = await writeDriveData(token, snapshot, fid);
+        if (!fid) setDriveFileId(returnedId); // first-ever write — store the new file ID
       } catch (err) {
         console.error('Drive auto-save failed', err);
       }
-    }, 2000);
+    }, 400);
     return () => clearTimeout(id);
-  });
+  }, [lastSaved]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Home screen Drive check ───────────────────────────────────────────────
 
@@ -315,13 +314,8 @@ export default function App() {
 
     const run = async () => {
       lastDriveCheckRef.current = Date.now();
-      let token = googleToken;
-      if (!token && googleUser?.email) {
-        try { token = await requestGoogleTokenSilent(googleUser.email); setGoogleSession(token, googleUser); }
-        catch { return; }
-      }
-      if (!token) return;
-      try { await checkDriveForUpdates(token); }
+      if (!googleToken) return;
+      try { await checkDriveForUpdates(googleToken); }
       catch (err) { console.error('Home Drive check failed', err); }
     };
     run();
@@ -407,8 +401,12 @@ export default function App() {
   const handleNewCv = (pov: Pov) => openBuilder({ povId: pov.id, step: 'create' });
   const handleOpenCv = (pov: Pov, cv: TrimmedCV) => openBuilder({ povId: pov.id, cvId: cv.id, name: cv.name, style: cv.style, step: 'compose' });
   const handlePreview = (pov: Pov, cv: TrimmedCV) => openBuilder({ povId: pov.id, cvId: cv.id, name: cv.name, style: cv.style, step: 'export' });
-  const handleDeletePov = (pov: Pov) => { if (confirm(`Delete POV "${pov.name}" and all its CVs?`)) deletePov(pov.id); };
-  const handleDeleteCv = (pov: Pov, cv: TrimmedCV) => { if (confirm(`Delete CV "${cv.name}"?`)) deleteCv(pov.id, cv.id); };
+  const handleDeletePov = (pov: Pov) => deletePov(pov.id);
+  const handleDeleteCv = (pov: Pov, cv: TrimmedCV) => deleteCv(pov.id, cv.id);
+  const handleEditPov = (pov: Pov, data: { name: string; accent: string }) =>
+    updatePov({ ...pov, name: data.name, accent: data.accent as Pov['accent'] });
+  const handleDuplicateCv = (pov: Pov, cv: TrimmedCV) =>
+    updatePov({ ...pov, cvs: [...pov.cvs, { ...cv, id: `cv-${Date.now()}`, name: `Copy of ${cv.name}` }] });
   const handleSaveCv = (povId: string, cv: TrimmedCV) => {
     const pov = povs.find((p) => p.id === povId);
     if (!pov) return;
@@ -471,7 +469,8 @@ export default function App() {
             onNewCv={handleNewCv}
             onPreview={handlePreview}
             onEdit={handleOpenCv}
-            onExport={handlePreview}
+            onDuplicateCv={handleDuplicateCv}
+            onEditPov={handleEditPov}
             onDeletePov={handleDeletePov}
             onDeleteCv={handleDeleteCv}
           />

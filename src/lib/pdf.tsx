@@ -1,98 +1,58 @@
 import { renderToStaticMarkup } from 'react-dom/server';
-import { toPng } from 'html-to-image';
-import cvCss from '../cv/cv.css?raw';
-import globalsCss from '../styles/globals.css?raw';
+import { toJpeg } from 'html-to-image';
+import { jsPDF } from 'jspdf';
 import { CVPaper } from '../cv/CVRenderer';
 import { buildATS } from '../cv/ats';
 import type { BaseCV, CvStyleId, CvSelection } from '../types';
 
 export const ATS_FRIENDLY_STYLES = new Set<CvStyleId>(['ledger', 'manuscript']);
 
-const BASE_PRINT_CSS = `
-@page { size: A4 portrait; margin: 0; }
-html, body { margin: 0; padding: 0; background: #fff; position: relative; }
-.cvpaper { box-shadow: none !important; margin: 0 !important; }
-`;
+const A4_W_MM = 210;
+const A4_H_MM = 297;
+const A4_W_PX = 794;
 
-const ATS_LAYER_CSS = `
-.sv-ats {
-  position: absolute;
-  top: 0; left: 0;
-  width: 794px; min-height: 1123px;
-  color: transparent;
-  font-size: 11px; line-height: 1.5;
-  white-space: pre-wrap; overflow: hidden;
-  pointer-events: none;
-  font-family: Arial, sans-serif;
-}
-`;
-
-function escHtml(s: string): string {
-  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-}
-
-function openPrintWindow(html: string): void {
-  const win = window.open('', '_blank', 'width=900,height=700');
-  if (!win) return;
-
-  win.document.open();
-  win.document.write(html);
-  win.document.close();
-
-  const doPrint = () => {
-    win.print();
-    win.addEventListener('afterprint', () => { try { win.close(); } catch { /* ignore */ } });
-  };
-
-  if (win.document.readyState === 'complete') {
-    void win.document.fonts.ready.then(doPrint).catch(doPrint);
-  } else {
-    win.addEventListener('load', () => void win.document.fonts.ready.then(doPrint).catch(doPrint));
-  }
-}
-
-async function rasterizeAndPrint(
-  cvHtml: string,
-  atsText: string,
-  safeTitle: string
-): Promise<void> {
-  // Inject the pre-rendered CV into the live document so html-to-image can
-  // capture it with the app's full CSS (custom properties, loaded fonts, etc.)
+async function rasterizeCv(cvHtml: string): Promise<{ dataUrl: string; heightPx: number }> {
   const container = document.createElement('div');
   container.style.cssText = 'position:fixed;top:-9999px;left:-9999px;width:794px;';
   container.innerHTML = cvHtml;
   document.body.appendChild(container);
 
   const node = container.firstElementChild as HTMLElement;
+  const heightPx = node.scrollHeight;
   let dataUrl: string;
   try {
-    dataUrl = await toPng(node, {
-      pixelRatio: 2,
-      width: 794,
-      height: node.scrollHeight,
-    });
+    dataUrl = await toJpeg(node, { pixelRatio: 1.5, quality: 0.92, width: A4_W_PX, height: heightPx, backgroundColor: '#ffffff' });
   } finally {
     container.remove();
   }
 
-  const html = `<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8"/>
-<title>${safeTitle}</title>
-<style>
-${BASE_PRINT_CSS}
-img.cv-render { display: block; width: 210mm; }
-${ATS_LAYER_CSS}
-</style>
-</head>
-<body>
-<img class="cv-render" src="${dataUrl}" alt="CV" />
-<div class="sv-ats">${escHtml(atsText)}</div>
-</body>
-</html>`;
+  return { dataUrl, heightPx };
+}
 
-  openPrintWindow(html);
+function buildAndSavePdf(
+  dataUrl: string,
+  heightPx: number,
+  atsText: string,
+  safeTitle: string
+): void {
+  const imgHeightMm = (heightPx / A4_W_PX) * A4_W_MM;
+  const pageCount = Math.ceil(imgHeightMm / A4_H_MM);
+
+  const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+
+  for (let i = 0; i < pageCount; i++) {
+    if (i > 0) doc.addPage();
+    // Shift the image up so each page shows the correct vertical slice
+    doc.addImage(dataUrl, 'JPEG', 0, -(i * A4_H_MM), A4_W_MM, imgHeightMm);
+  }
+
+  if (atsText) {
+    doc.setPage(1);
+    doc.setFontSize(8);
+    doc.text(doc.splitTextToSize(atsText, A4_W_MM), 5, 10, { renderingMode: 'invisible' });
+  }
+
+  doc.save(`${safeTitle}.pdf`);
 }
 
 export function downloadCvPdf(
@@ -110,27 +70,12 @@ export function downloadCvPdf(
     <CVPaper base={base} style={style} sel={sel} monoAccent={monoAccent} />
   );
 
-  if (atsOptimize && !ATS_FRIENDLY_STYLES.has(style)) {
-    const atsText = buildATS(base, sel);
-    void rasterizeAndPrint(cvHtml, atsText, safeTitle);
-    return;
-  }
+  // ATS-friendly styles were previously handled by print-to-PDF (text was real CSS text).
+  // Now that we always rasterize, we add the hidden text layer for them too.
+  const needsAtsText = atsOptimize || ATS_FRIENDLY_STYLES.has(style);
+  const atsText = needsAtsText ? buildATS(base, sel) : '';
 
-  // Simple path: the browser's print-to-PDF already encodes every CSS-rendered
-  // character as real extractable text — no hidden layer needed.
-  const html = `<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8"/>
-<title>${safeTitle}</title>
-<style>${globalsCss}</style>
-<style>${cvCss}</style>
-<style>${BASE_PRINT_CSS}</style>
-</head>
-<body>
-${cvHtml}
-</body>
-</html>`;
-
-  openPrintWindow(html);
+  void rasterizeCv(cvHtml).then(({ dataUrl, heightPx }) => {
+    buildAndSavePdf(dataUrl, heightPx, atsText, safeTitle);
+  });
 }
