@@ -201,6 +201,7 @@ export default function App() {
   const [screen, setScreen] = useState<Screen>('home');
   const [showNewPov, setShowNewPov] = useState(false);
   const [builderInit, setBuilderInit] = useState<BuilderInit>({ povId: povs[0]?.id || '', step: 'create' });
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const [showWarn, setShowWarn] = useState(false);
   const [syncing, setSyncing] = useState(false);
@@ -381,10 +382,15 @@ export default function App() {
 
   return (
     <>
+      {/* Backdrop for mobile sidebar */}
+      {sidebarOpen && (
+        <div className="mobile-sidebar-backdrop" onClick={() => setSidebarOpen(false)} />
+      )}
+
       <div style={{ display: 'flex', minHeight: '100vh' }}>
         <Sidebar
           nav="home"
-          onNav={(k) => setScreen(k as Screen)}
+          onNav={(k) => { setScreen(k as Screen); setSidebarOpen(false); }}
           povs={empty ? [] : povs}
           onNewPov={() => setShowNewPov(true)}
           onNewCv={handleNewCv}
@@ -393,8 +399,20 @@ export default function App() {
           authProvider={authProvider}
           onLoginGoogle={initiateGoogleLogin}
           onLogout={handleLogout}
+          isOpen={sidebarOpen}
+          onClose={() => setSidebarOpen(false)}
         />
-        <main style={{ flex: 1, minWidth: 0 }}>
+        <main className="home-main" style={{ flex: 1, minWidth: 0 }}>
+          {/* Mobile-only top bar with hamburger */}
+          <div className="mobile-hamburger" style={{
+            padding: '12px 16px', borderBottom: '1.5px solid var(--line)',
+            background: 'var(--paper)', alignItems: 'center', gap: 12,
+          }}>
+            <button className="iconbtn" onClick={() => setSidebarOpen(true)} title="Open menu">
+              <Icon name="menu" size={20} />
+            </button>
+            <span className="serif" style={{ fontWeight: 800, fontSize: 16 }}>Σ Summa Vitae</span>
+          </div>
           <Home
             base={baseCV}
             povs={empty ? [] : povs}

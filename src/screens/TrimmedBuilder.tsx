@@ -59,7 +59,7 @@ interface CreationStepProps {
 
 function CreationStep({ base, povs, draft, setDraft, onContinue }: CreationStepProps) {
   return (
-    <div style={{ maxWidth: 1080, margin: '0 auto', padding: '36px 44px 80px' }}>
+    <div className="creation-step-wrap" style={{ maxWidth: 1080, margin: '0 auto', padding: '36px 44px 80px' }}>
       <div className="sv-enter">
         <Kicker>Step 1 — choose a reading</Kicker>
         <h1 className="serif" style={{ fontSize: 34, fontWeight: 800, letterSpacing: '-.02em', marginTop: 10 }}>
@@ -315,9 +315,10 @@ interface VersionPickerModalProps {
   onApply: (newSel: CvSelection) => void;
   onSaveBase: (newBase: BaseCV) => void;
   onClose: () => void;
+  onRemove?: () => void;
 }
 
-function VersionPickerModal({ entryId, section, base, sel, onApply, onSaveBase, onClose }: VersionPickerModalProps) {
+function VersionPickerModal({ entryId, section, base, sel, onApply, onSaveBase, onClose, onRemove }: VersionPickerModalProps) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const all = ((base as any)[section] as { id: string; versions?: unknown[] }[]) || [];
   const entry = all.find((x) => x.id === entryId) as Record<string, unknown> & { id: string } | undefined;
@@ -494,6 +495,15 @@ function VersionPickerModal({ entryId, section, base, sel, onApply, onSaveBase, 
           ) : (
             <>
               <button className="btn btn--ghost btn--sm" onClick={onClose}>Cancel</button>
+              {onRemove && (
+                <button
+                  className="btn btn--sm"
+                  style={{ background: '#ef4444', color: '#fff', border: '1.5px solid #dc2626', boxShadow: '1.5px 1.5px 0 #991b1b' }}
+                  onClick={onRemove}
+                >
+                  <Icon name="trash" size={13} color="#fff" /> Remove
+                </button>
+              )}
               <div style={{ flex: 1 }} />
               {chosen !== 'custom' && (
                 <button className="btn btn--ghost btn--sm" onClick={handleStartEdit}>
@@ -813,6 +823,22 @@ function ComposeSection({ base, section, sel, setSel, onVersionPick }: ComposeSe
     return null;
   };
 
+  const moveUp = (id: string) => {
+    const arr = [...ids];
+    const i = arr.indexOf(id);
+    if (i <= 0) return;
+    [arr[i - 1], arr[i]] = [arr[i], arr[i - 1]];
+    setSel({ ...sel, [section]: arr } as CvSelection);
+  };
+
+  const moveDown = (id: string) => {
+    const arr = [...ids];
+    const i = arr.indexOf(id);
+    if (i >= arr.length - 1) return;
+    [arr[i + 1], arr[i]] = [arr[i], arr[i + 1]];
+    setSel({ ...sel, [section]: arr } as CvSelection);
+  };
+
   return (
     <div style={{ marginBottom: 14, borderBottom: '1.5px solid var(--line)', paddingBottom: 14 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 9 }}>
@@ -820,7 +846,6 @@ function ComposeSection({ base, section, sel, setSel, onVersionPick }: ComposeSe
         <span className="serif" style={{ fontSize: 15, fontWeight: 800 }}>{SECTION_TITLES[section]}</span>
         <span className="mono" style={{ fontSize: 10.5, color: 'var(--ink-faint)' }}>{included.length}</span>
         <div style={{ flex: 1 }} />
-        {/* Auto-order by most recent — only for work/experience */}
         {section === 'work' && ids.length > 1 && (
           <button className="iconbtn" style={{ width: 28, height: 28 }} title="Order by most recent" onClick={orderByRecent}>
             <Icon name="sort" size={15} />
@@ -831,7 +856,7 @@ function ComposeSection({ base, section, sel, setSel, onVersionPick }: ComposeSe
         </button>
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-        {included.map((it) => {
+        {included.map((it, itIdx) => {
           const lab = itemLabel(section, it);
           const isDragged = draggedId === it.id;
           const isTarget = dragOverId === it.id && draggedId !== it.id;
@@ -858,32 +883,61 @@ function ComposeSection({ base, section, sel, setSel, onVersionPick }: ComposeSe
                 background: 'var(--paper)',
                 border: isTarget ? '1.5px solid var(--accent)' : '1.5px solid var(--line-strong)',
                 opacity: isDragged ? 0.4 : 1,
-                cursor: draggedId ? 'grabbing' : 'default',
+                cursor: draggedId ? 'grabbing' : 'pointer',
                 transition: 'border-color .1s, opacity .1s',
               }}
+              onClick={() => { if (!draggedId) onVersionPick(section, it.id as string); }}
             >
               <Icon name="grip" size={14} color="var(--ink-faint)" style={{ cursor: 'grab', flexShrink: 0 }} />
               <span style={{ minWidth: 0, flex: 1 }}>
                 <span style={{ display: 'block', fontSize: 12.5, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{lab.main}</span>
                 <span className="mono" style={{ fontSize: 10, color: 'var(--ink-faint)' }}>{lab.sub}</span>
               </span>
-              {/* Version picker button */}
-              <button
-                onClick={() => onVersionPick(section, it.id as string)}
-                title="Pick version"
+              {/* Version badge — visual indicator, card click opens the modal */}
+              <span
                 className="mono"
                 style={{
                   fontSize: 9.5, letterSpacing: '.06em', height: 22, padding: '0 7px',
                   borderRadius: 5, border: '1.5px solid var(--line-strong)',
                   background: isCustomVersion ? 'var(--ink)' : 'var(--paper-2)',
                   color: isCustomVersion ? '#fff' : 'var(--ink-faint)',
-                  cursor: 'pointer', flexShrink: 0,
+                  display: 'inline-flex', alignItems: 'center', flexShrink: 0,
                   fontWeight: isCustomVersion ? 700 : 400,
                 }}
               >
                 {vLabel ?? 'v1'}
-              </button>
-              <Icon name="x" size={13} style={{ cursor: 'pointer', opacity: .5, flexShrink: 0 }} onClick={() => remove(it.id as string)} />
+              </span>
+              {/* Mobile-only up/down reorder buttons (desktop uses drag-and-drop) */}
+              <div
+                className="mobile-reorder-btns"
+                style={{ flexDirection: 'column', gap: 2, flexShrink: 0 }}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <button
+                  className="iconbtn"
+                  style={{ width: 22, height: 22, borderRadius: 5, opacity: itIdx === 0 ? 0.3 : 1 }}
+                  disabled={itIdx === 0}
+                  onClick={() => moveUp(it.id as string)}
+                  title="Move up"
+                >
+                  <Icon name="chevD" size={12} style={{ transform: 'rotate(180deg)' }} />
+                </button>
+                <button
+                  className="iconbtn"
+                  style={{ width: 22, height: 22, borderRadius: 5, opacity: itIdx === included.length - 1 ? 0.3 : 1 }}
+                  disabled={itIdx === included.length - 1}
+                  onClick={() => moveDown(it.id as string)}
+                  title="Move down"
+                >
+                  <Icon name="chevD" size={12} />
+                </button>
+              </div>
+              <Icon
+                name="x"
+                size={13}
+                style={{ cursor: 'pointer', opacity: .5, flexShrink: 0 }}
+                onClick={(e) => { (e as React.MouseEvent).stopPropagation(); remove(it.id as string); }}
+              />
             </div>
           );
         })}
@@ -911,43 +965,67 @@ interface ComposeStepProps {
 
 function ComposeStep({ base, draft, sel, setSel, onSaveBase }: ComposeStepProps) {
   const [versionModal, setVersionModal] = useState<{ section: string; entryId: string } | null>(null);
+  const [mobilePreviewOpen, setMobilePreviewOpen] = useState(false);
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: '390px 1fr', height: '100%', minHeight: 0 }}>
-      <div style={{ borderRight: '1.5px solid var(--line)', overflowY: 'auto', padding: '24px 22px 80px', background: 'var(--paper-2)' }}>
-        <Kicker>Step 2 — compose</Kicker>
-        <h2 className="serif" style={{ fontSize: 23, fontWeight: 800, marginTop: 8, letterSpacing: '-.01em' }}>
-          Pull from your record
-        </h2>
-        <p style={{ fontSize: 13, color: 'var(--ink-soft)', lineHeight: 1.5, margin: '8px 0 18px' }}>
-          Hit <Icon name="plus" size={12} style={{ verticalAlign: '-1px' }} /> on any section to add entries from your Base CV.
-        </p>
+    <>
+      <div className="compose-step-grid" style={{ display: 'grid', gridTemplateColumns: '390px 1fr', height: '100%', minHeight: 0 }}>
+        <div style={{ borderRight: '1.5px solid var(--line)', overflowY: 'auto', padding: '24px 22px 80px', background: 'var(--paper-2)' }}>
+          <Kicker>Step 2 — compose</Kicker>
+          <h2 className="serif" style={{ fontSize: 23, fontWeight: 800, marginTop: 8, letterSpacing: '-.01em' }}>
+            Pull from your record
+          </h2>
+          <p style={{ fontSize: 13, color: 'var(--ink-soft)', lineHeight: 1.5, margin: '8px 0 18px' }}>
+            Hit <Icon name="plus" size={12} style={{ verticalAlign: '-1px' }} /> on any section to add entries from your Base CV.
+          </p>
 
-        <div className="field" style={{ marginBottom: 18 }}>
-          <label>Headline</label>
-          <input className="input" value={sel.headline || ''}
-            placeholder="Custom role headline for this CV"
-            onChange={(e) => setSel({ ...sel, headline: e.target.value })} />
+          <div className="field" style={{ marginBottom: 18 }}>
+            <label>Headline</label>
+            <input className="input" value={sel.headline || ''}
+              placeholder="Custom role headline for this CV"
+              onChange={(e) => setSel({ ...sel, headline: e.target.value })} />
+          </div>
+
+          <SummaryComposeSection base={base} sel={sel} setSel={setSel} />
+          <LinksComposeSection base={base} sel={sel} setSel={setSel} />
+
+          {COMPOSE_ORDER.map((s) => (
+            <ComposeSection
+              key={s} base={base} section={s} sel={sel} setSel={setSel}
+              onVersionPick={(section, entryId) => setVersionModal({ section, entryId })}
+            />
+          ))}
         </div>
 
-        <SummaryComposeSection base={base} sel={sel} setSel={setSel} />
-        <LinksComposeSection base={base} sel={sel} setSel={setSel} />
-
-        {COMPOSE_ORDER.map((s) => (
-          <ComposeSection
-            key={s} base={base} section={s} sel={sel} setSel={setSel}
-            onVersionPick={(section, entryId) => setVersionModal({ section, entryId })}
-          />
-        ))}
-      </div>
-
-      <div style={{ overflowY: 'auto', background: '#e8e0cf', padding: '32px 40px 80px' }}>
-        <div className="row" style={{ justifyContent: 'center', gap: 10, marginBottom: 18 }}>
-          <Chip tone="blue"><Icon name="eye" size={12} /> Live preview</Chip>
-          <Chip>{(CV_STYLES.find((x) => x.id === draft.style) || {}).name}</Chip>
+        <div
+          className={`compose-preview-panel${mobilePreviewOpen ? ' mobile-preview-open' : ''}`}
+          style={{ overflowY: 'auto', background: '#e8e0cf', padding: '32px 40px 80px' }}
+        >
+          {/* Mobile back button inside preview panel */}
+          <button
+            className="preview-mobile-back btn btn--ghost btn--sm"
+            style={{ display: 'none', marginBottom: 16 }}
+            onClick={() => setMobilePreviewOpen(false)}
+          >
+            <Icon name="arrowL" size={13} /> Back to editing
+          </button>
+          <div className="row" style={{ justifyContent: 'center', gap: 10, marginBottom: 18 }}>
+            <Chip tone="blue"><Icon name="eye" size={12} /> Live preview</Chip>
+            <Chip>{(CV_STYLES.find((x) => x.id === draft.style) || {}).name}</Chip>
+          </div>
+          <FitPaper base={base} style={draft.style as CvStyleId} sel={sel} accent={draft.accent} />
         </div>
-        <FitPaper base={base} style={draft.style as CvStyleId} sel={sel} accent={draft.accent} />
       </div>
+
+      {/* Floating "Preview CV" button — mobile only */}
+      <button
+        className="btn btn--primary mobile-preview-btn"
+        onClick={() => setMobilePreviewOpen((v) => !v)}
+        style={{ gap: 8 }}
+      >
+        <Icon name={mobilePreviewOpen ? 'pencil' : 'eye'} size={15} color="var(--paper)" />
+        {mobilePreviewOpen ? 'Edit' : 'Preview CV'}
+      </button>
 
       {versionModal && (
         <VersionPickerModal
@@ -958,9 +1036,23 @@ function ComposeStep({ base, draft, sel, setSel, onSaveBase }: ComposeStepProps)
           onApply={setSel}
           onSaveBase={onSaveBase}
           onClose={() => setVersionModal(null)}
+          onRemove={() => {
+            const sectionIds = (sel[versionModal.section as keyof CvSelection] as string[]) || [];
+            const newOverrides = { ...(sel.versionOverrides || {}) };
+            const newCustom = { ...(sel.customVersions || {}) };
+            delete newOverrides[versionModal.entryId];
+            delete newCustom[versionModal.entryId];
+            setSel({
+              ...sel,
+              [versionModal.section]: sectionIds.filter((x) => x !== versionModal.entryId),
+              versionOverrides: Object.keys(newOverrides).length ? newOverrides : undefined,
+              customVersions: Object.keys(newCustom).length ? newCustom : undefined,
+            } as CvSelection);
+            setVersionModal(null);
+          }}
         />
       )}
-    </div>
+    </>
   );
 }
 
@@ -1006,12 +1098,12 @@ function ExportStep({ base, draft, sel, readyToSend, onReadyChange }: ExportStep
   const styleName = (CV_STYLES.find((x) => x.id === draft.style) || {}).name;
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: '1fr 340px', height: '100%', minHeight: 0 }}>
-      <div style={{ overflowY: 'auto', background: '#dcd3c0', padding: '40px 48px 90px' }}>
+    <div className="export-step-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 340px', height: '100%', minHeight: 0 }}>
+      <div className="export-preview-col" style={{ overflowY: 'auto', background: '#dcd3c0', padding: '40px 48px 90px' }}>
         <FitPaper base={base} style={draft.style as CvStyleId} sel={sel} accent={draft.accent} />
       </div>
 
-      <div style={{ borderLeft: '1.5px solid var(--line)', overflowY: 'auto', padding: '28px 26px 80px', background: 'var(--card)' }}>
+      <div className="export-options-col" style={{ borderLeft: '1.5px solid var(--line)', overflowY: 'auto', padding: '28px 26px 80px', background: 'var(--card)' }}>
         <Kicker>Step 3 — export</Kicker>
         <h2 className="serif" style={{ fontSize: 23, fontWeight: 800, marginTop: 8, letterSpacing: '-.01em' }}>
           Ready to send
@@ -1121,6 +1213,7 @@ export function TrimmedBuilder({ base, povs, init, onExit, onSave }: TrimmedBuil
   // Stable id for this session: reuse existing cv id or mint one once
   const [cvId] = useState(() => init.cvId || `cv-${Date.now()}`);
   const [readyToSend, setReadyToSend] = useState(true);
+  const [exitModal, setExitModal] = useState(false);
 
   useEffect(() => {
     const pov = povs.find((p) => p.id === draft.povId) || povs[0];
@@ -1142,6 +1235,12 @@ export function TrimmedBuilder({ base, povs, init, onExit, onSave }: TrimmedBuil
   const goNext = () => setStep(BUILD_STEPS[Math.min(2, idx + 1)][0]);
   const goPrev = () => { if (idx === 0) onExit(); else setStep(BUILD_STEPS[idx - 1][0]); };
 
+  const isDirty = step !== 'create'
+    || draft.name !== (init.name || '')
+    || draft.style !== (init.style || '')
+    || draft.povId !== init.povId;
+  const handleExit = () => { if (isDirty) setExitModal(true); else onExit(); };
+
   const buildCv = (status: 'draft' | 'ready'): TrimmedCV => {
     const currentSel = sel || defaultSelForFocus(base, (povs.find((p) => p.id === draft.povId) || povs[0]).focus);
     const activeSections = COMPOSE_ORDER.filter((s) => ((currentSel[s] as string[]) || []).length > 0);
@@ -1160,16 +1259,34 @@ export function TrimmedBuilder({ base, povs, init, onExit, onSave }: TrimmedBuil
 
   return (
     <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', background: 'var(--paper)' }}>
+      {exitModal && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 200, background: 'rgba(22,18,14,.55)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24,
+        }}>
+          <div className="card sv-pop" style={{ width: 380, padding: '28px 28px 24px', borderColor: 'var(--ink)', borderWidth: 2 }}>
+            <h3 className="serif" style={{ fontSize: 21, fontWeight: 800, marginBottom: 10 }}>Unsaved changes</h3>
+            <p style={{ fontSize: 14, color: 'var(--ink-soft)', lineHeight: 1.5, marginBottom: 22 }}>
+              You have unsaved changes. If you leave now they will be lost.
+            </p>
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+              <button className="btn btn--ghost btn--sm" onClick={() => setExitModal(false)}>Keep editing</button>
+              <button className="btn btn--sm" style={{ background: '#ef4444', color: '#fff', borderColor: '#ef4444' }}
+                onClick={onExit}>Leave anyway</button>
+            </div>
+          </div>
+        </div>
+      )}
       {/* Top bar with stepper */}
-      <header style={{
+      <header className="builder-header" style={{
         display: 'flex', alignItems: 'center', gap: 18, padding: '14px 26px',
         borderBottom: '1.5px solid var(--line)', background: 'var(--card)', flexShrink: 0,
       }}>
-        <button className="iconbtn" onClick={onExit} title="Back to studio"><Icon name="x" size={18} /></button>
+        <button className="iconbtn" onClick={handleExit} title="Back to studio"><Icon name="x" size={18} /></button>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           {BUILD_STEPS.map(([k, label], i) => (
             <Fragment key={k}>
-              {i > 0 && <span style={{ width: 22, height: 1.5, background: i <= idx ? 'var(--ink)' : 'var(--line-strong)' }} />}
+              {i > 0 && <span className="step-dash" style={{ width: 22, height: 1.5, background: i <= idx ? 'var(--ink)' : 'var(--line-strong)', flexShrink: 0 }} />}
               <button onClick={() => (i < idx || canNext ? setStep(k) : undefined)} style={{
                 display: 'flex', alignItems: 'center', gap: 8, border: 0, background: 'transparent', cursor: 'pointer', padding: '4px 4px',
               }}>
@@ -1182,7 +1299,7 @@ export function TrimmedBuilder({ base, povs, init, onExit, onSave }: TrimmedBuil
                 }}>
                   {i < idx ? <Icon name="check" size={13} color="var(--paper)" /> : i + 1}
                 </span>
-                <span className="mono" style={{
+                <span className="step-label mono" style={{
                   fontSize: 11.5, letterSpacing: '.1em', textTransform: 'uppercase',
                   fontWeight: i === idx ? 700 : 500, color: i === idx ? 'var(--ink)' : 'var(--ink-faint)',
                 }}>{label}</span>
@@ -1191,7 +1308,7 @@ export function TrimmedBuilder({ base, povs, init, onExit, onSave }: TrimmedBuil
           ))}
         </div>
         <div style={{ flex: 1 }} />
-        <span className="mono" style={{ fontSize: 11.5, color: 'var(--ink-faint)', maxWidth: 200, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+        <span className="builder-cv-name mono" style={{ fontSize: 11.5, color: 'var(--ink-faint)', maxWidth: 200, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
           {draft.name || 'Untitled CV'}
         </span>
         {canSave && (
@@ -1211,7 +1328,7 @@ export function TrimmedBuilder({ base, povs, init, onExit, onSave }: TrimmedBuil
               <Icon name="check" size={14} color="#fff" /> Save to studio</button>}
       </header>
 
-      <div style={{ flex: 1, minHeight: 0, overflow: step === 'create' ? 'auto' : 'hidden' }}>
+      <div className="step-content-outer" style={{ flex: 1, minHeight: 0, overflow: step === 'create' ? 'auto' : 'hidden' }}>
         {step === 'create' && (
           <CreationStep base={base} povs={povs} draft={draft} setDraft={setDraft} onContinue={goNext} />
         )}

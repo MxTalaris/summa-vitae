@@ -18,9 +18,11 @@ interface SidebarProps {
   authProvider: AuthProvider;
   onLoginGoogle: () => void;
   onLogout: () => void;
+  isOpen?: boolean;
+  onClose?: () => void;
 }
 
-export function Sidebar({ nav, onNav, povs, onNewPov, onNewCv, onOpenCv, userName, authProvider, onLoginGoogle, onLogout }: SidebarProps) {
+export function Sidebar({ nav, onNav, povs, onNewPov, onNewCv, onOpenCv, userName, authProvider, onLoginGoogle, onLogout, isOpen, onClose }: SidebarProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -42,20 +44,27 @@ export function Sidebar({ nav, onNav, povs, onNewPov, onNewCv, onOpenCv, userNam
   ];
 
   return (
-    <aside style={{
-      width: 248, flexShrink: 0, borderRight: '1.5px solid var(--line)',
-      background: 'var(--paper-2)', display: 'flex', flexDirection: 'column', padding: '22px 14px',
-      height: '100vh', position: 'sticky', top: 0, overflowY: 'auto',
-    }}>
-      <div style={{ padding: '0 6px 22px' }}>
-        <span className="serif" style={{ fontWeight: 800, fontSize: 20, letterSpacing: '-.01em' }}>Σ Summa Vitae</span>
+    <aside
+      className={`home-sidebar${isOpen ? ' home-sidebar--open' : ''}`}
+      style={{
+        width: 248, flexShrink: 0, borderRight: '1.5px solid var(--line)',
+        background: 'var(--paper-2)', display: 'flex', flexDirection: 'column', padding: '22px 14px',
+        height: '100vh', position: 'sticky', top: 0,
+      }}
+    >
+      {/* Logo row + mobile close button */}
+      <div style={{ padding: '0 6px 22px', display: 'flex', alignItems: 'center', gap: 10 }}>
+        <span className="serif" style={{ fontWeight: 800, fontSize: 20, letterSpacing: '-.01em', flex: 1 }}>Σ Summa Vitae</span>
+        <button className="iconbtn sidebar-mobile-close" onClick={onClose} title="Close menu">
+          <Icon name="x" size={18} />
+        </button>
       </div>
 
       <div className="kicker" style={{ padding: '0 10px 8px' }}>Workspace</div>
       {items.map(([key, icon, label]) => {
         const on = nav === key;
         return (
-          <button key={key} onClick={() => onNav(key)} style={{
+          <button key={key} onClick={() => { onNav(key); onClose?.(); }} style={{
             display: 'flex', alignItems: 'center', gap: 11,
             padding: '9px 12px', marginBottom: 3, cursor: 'pointer', borderRadius: 9, width: '100%',
             textAlign: 'left', fontFamily: 'var(--sans)', fontSize: 14, fontWeight: on ? 700 : 500,
@@ -68,61 +77,61 @@ export function Sidebar({ nav, onNav, povs, onNewPov, onNewCv, onOpenCv, userNam
         );
       })}
 
-      {/* POV tree */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '22px 10px 8px' }}>
-        <span className="kicker">Points of View</span>
-        <div style={{ flex: 1 }} />
-        <button onClick={onNewPov} className="iconbtn" title="New POV" style={{ width: 22, height: 22, borderRadius: 6 }}>
-          <Icon name="plus" size={13} />
-        </button>
-      </div>
+      {/* POV tree — scrollable container keeps logo/nav/user-card fixed */}
+      <div className="sidebar-pov-scroll" style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '22px 10px 8px' }}>
+          <span className="kicker">Points of View</span>
+          <div style={{ flex: 1 }} />
+          <button onClick={onNewPov} className="iconbtn" title="New POV" style={{ width: 22, height: 22, borderRadius: 6 }}>
+            <Icon name="plus" size={13} />
+          </button>
+        </div>
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-        {povs.map((pov) => (
-          <div key={pov.id} style={{ marginBottom: 6 }}>
-            <div className="row" style={{ gap: 8, padding: '6px 8px 6px 10px', borderRadius: 7 }}>
-              <span style={{
-                width: 8, height: 8, borderRadius: 2, background: `var(--${pov.accent})`,
-                boxShadow: '1px 1px 0 var(--ink)', flexShrink: 0,
-              }} />
-              <span className="serif" style={{
-                flex: 1, fontSize: 13.5, fontWeight: 800, letterSpacing: '-.005em',
-                whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-              }}>{pov.name}</span>
-              <button onClick={() => onNewCv(pov)} className="iconbtn" title={'Add CV to ' + pov.name}
-                style={{ width: 20, height: 20, borderRadius: 5, flexShrink: 0 }}>
-                <Icon name="plus" size={12} />
-              </button>
-            </div>
-            <div style={{ borderLeft: '1.5px solid var(--line)', marginLeft: 13, paddingLeft: 6 }}>
-              {pov.cvs.length === 0 ? (
-                <button onClick={() => onNewCv(pov)} className="mono" style={{
-                  display: 'block', width: '100%', textAlign: 'left', padding: '6px 9px',
-                  border: 0, background: 'transparent', cursor: 'pointer', fontSize: 11, color: 'var(--ink-faint)', borderRadius: 6,
-                }}>+ first CV</button>
-              ) : pov.cvs.map((cv) => (
-                <button key={cv.id} onClick={() => onOpenCv(pov, cv)} style={{
-                  display: 'flex', alignItems: 'center', gap: 8, width: '100%', textAlign: 'left',
-                  padding: '6px 9px', border: 0, cursor: 'pointer', background: 'transparent', borderRadius: 6,
-                  color: 'var(--ink-soft)', fontFamily: 'var(--sans)', fontSize: 12.5, transition: 'background .1s',
-                }}
-                  onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--card)')}
-                  onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}>
-                  <Icon name="doc" size={13} color="var(--ink-faint)" />
-                  <span style={{ flex: 1, minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                    {cv.name}
-                  </span>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          {povs.map((pov) => (
+            <div key={pov.id} style={{ marginBottom: 6 }}>
+              <div className="row" style={{ gap: 8, padding: '6px 8px 6px 10px', borderRadius: 7 }}>
+                <span style={{
+                  width: 8, height: 8, borderRadius: 2, background: `var(--${pov.accent})`,
+                  boxShadow: '1px 1px 0 var(--ink)', flexShrink: 0,
+                }} />
+                <span className="serif" style={{
+                  flex: 1, fontSize: 13.5, fontWeight: 800, letterSpacing: '-.005em',
+                  whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                }}>{pov.name}</span>
+                <button onClick={() => onNewCv(pov)} className="iconbtn" title={'Add CV to ' + pov.name}
+                  style={{ width: 20, height: 20, borderRadius: 5, flexShrink: 0 }}>
+                  <Icon name="plus" size={12} />
                 </button>
-              ))}
+              </div>
+              <div style={{ borderLeft: '1.5px solid var(--line)', marginLeft: 13, paddingLeft: 6 }}>
+                {pov.cvs.length === 0 ? (
+                  <button onClick={() => onNewCv(pov)} className="mono" style={{
+                    display: 'block', width: '100%', textAlign: 'left', padding: '6px 9px',
+                    border: 0, background: 'transparent', cursor: 'pointer', fontSize: 11, color: 'var(--ink-faint)', borderRadius: 6,
+                  }}>+ first CV</button>
+                ) : pov.cvs.map((cv) => (
+                  <button key={cv.id} onClick={() => { onOpenCv(pov, cv); onClose?.(); }} style={{
+                    display: 'flex', alignItems: 'center', gap: 8, width: '100%', textAlign: 'left',
+                    padding: '6px 9px', border: 0, cursor: 'pointer', background: 'transparent', borderRadius: 6,
+                    color: 'var(--ink-soft)', fontFamily: 'var(--sans)', fontSize: 12.5, transition: 'background .1s',
+                  }}
+                    onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--card)')}
+                    onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}>
+                    <Icon name="doc" size={13} color="var(--ink-faint)" />
+                    <span style={{ flex: 1, minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      {cv.name}
+                    </span>
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
-        ))}
+          ))}
+        </div>
       </div>
-
-      <div style={{ flex: 1, minHeight: 18 }} />
 
       {/* User card with context menu */}
-      <div ref={menuRef} style={{ position: 'relative' }}>
+      <div ref={menuRef} style={{ position: 'relative', marginTop: 8 }}>
         {menuOpen && (
           <div style={{
             position: 'absolute', bottom: 'calc(100% + 8px)', left: 0, right: 0,
@@ -341,7 +350,7 @@ interface PovGroupProps {
 function PovGroup({ base, pov, idx, onNewCv, onPreview, onEdit, onExport, onDeletePov, onDeleteCv }: PovGroupProps) {
   return (
     <section className="sv-enter" style={{ marginTop: idx === 0 ? 0 : 36, animationDelay: `${idx * 60}ms` }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
+      <div className="pov-group-header" style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
         <span style={{
           width: 11, height: 11, borderRadius: 3, background: `var(--${pov.accent})`,
           boxShadow: '1.5px 1.5px 0 var(--ink)', flexShrink: 0,
@@ -350,15 +359,17 @@ function PovGroup({ base, pov, idx, onNewCv, onPreview, onEdit, onExport, onDele
         <Chip>{pov.cvs.length} {pov.cvs.length === 1 ? 'CV' : 'CVs'}</Chip>
         <span className="muted" style={{ fontSize: 13, marginLeft: 2 }}>{pov.desc}</span>
         <div style={{ flex: 1 }} />
-        <button className="btn btn--sm btn--ghost" onClick={() => onNewCv(pov)}>
-          <Icon name="plus" size={14} /> New CV
-        </button>
-        <button className="btn btn--sm btn--ghost" onClick={() => onDeletePov(pov)} title="Delete POV"
-          style={{ color: 'var(--ink-faint)' }}>
-          <Icon name="trash" size={14} />
-        </button>
+        <div className="pov-header-actions" style={{ display: 'flex', gap: 8 }}>
+          <button className="btn btn--sm btn--ghost" onClick={() => onNewCv(pov)}>
+            <Icon name="plus" size={14} /> New CV
+          </button>
+          <button className="btn btn--sm btn--ghost" onClick={() => onDeletePov(pov)} title="Delete POV"
+            style={{ color: 'var(--ink-faint)' }}>
+            <Icon name="trash" size={14} />
+          </button>
+        </div>
       </div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 16 }}>
+      <div className="pov-cv-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 16 }}>
         {pov.cvs.map((cv) => (
           <CvCard key={cv.id} base={base} pov={pov} cv={cv}
             onPreview={onPreview} onEdit={onEdit} onExport={onExport} onDelete={onDeleteCv} />
@@ -398,7 +409,7 @@ function BaseCard({ base, empty, onEdit, highlight }: BaseCardProps) {
         fontWeight: 800, fontSize: 300, lineHeight: .8, color: 'rgba(244,236,219,.05)',
       }}>Σ</span>
       <div style={{ position: 'relative', zIndex: 1, display: 'flex', alignItems: 'center', gap: 28, flexWrap: 'wrap' }}>
-        <div style={{ flex: 1, minWidth: 280 }}>
+        <div className="base-card-inner" style={{ flex: 1, minWidth: 280 }}>
           <div className="kicker" style={{ color: 'var(--yellow)' }}>Source of Record</div>
           <h2 className="serif" style={{
             fontSize: 30, fontWeight: 800, marginTop: 10, color: 'var(--paper)', letterSpacing: '-.01em',
@@ -511,7 +522,7 @@ export function Home({ base, povs, empty, onEditBase, onNewPov, onNewCv, onPrevi
   const greet = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
 
   return (
-    <div style={{ maxWidth: 1180, margin: '0 auto', padding: '40px 44px 120px' }}>
+    <div className="home-content-wrap" style={{ maxWidth: 1180, margin: '0 auto', padding: '40px 44px 120px' }}>
       <div className="sv-enter" style={{
         display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between',
         gap: 20, marginBottom: 28, flexWrap: 'wrap',

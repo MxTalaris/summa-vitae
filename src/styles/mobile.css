@@ -1,0 +1,205 @@
+/* ================================================================
+   Mobile overrides — max-width: 767px
+   All base/desktop styles remain in their source files.
+   ================================================================ */
+
+/* ── Shared helpers (hidden on desktop, shown via media query) ── */
+.mobile-hamburger      { display: none; }
+.sidebar-mobile-close  { display: none !important; }
+.mobile-preview-btn    { display: none; }
+.mobile-sidebar-backdrop { display: none; }
+.mobile-reorder-btns   { display: none; }
+
+@media (max-width: 767px) {
+
+  /* ── Home sidebar ──────────────────────────────────────────── */
+  .home-sidebar {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    height: 100dvh !important;
+    width: min(280px, 85vw) !important;
+    z-index: 100;
+    transform: translateX(-100%);
+    transition: transform 0.28s cubic-bezier(0.2, 0.8, 0.3, 1);
+  }
+
+  .home-sidebar--open {
+    transform: translateX(0) !important;
+    box-shadow: 4px 0 40px rgba(24, 20, 16, 0.32);
+  }
+
+  .sidebar-mobile-close {
+    display: inline-flex !important;
+  }
+
+  /* Backdrop behind open sidebar */
+  .mobile-sidebar-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(24, 20, 16, 0.45);
+    z-index: 99;
+    cursor: pointer;
+  }
+
+  /* ── Hamburger / icon buttons: visible on mobile ─────────── */
+  .mobile-hamburger {
+    display: flex !important;
+  }
+
+  /* ── Home main content ─────────────────────────────────────── */
+  .home-main {
+    overflow-x: hidden;
+    max-width: 100vw;
+  }
+
+  /* Reduce horizontal padding on the inner Home wrapper */
+  .home-content-wrap {
+    padding-left: 20px !important;
+    padding-right: 20px !important;
+    overflow-x: hidden;
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+
+  /* POV header buttons: always on their own line */
+  .pov-header-actions {
+    flex-basis: 100%;
+  }
+
+  /* POV CV cards: single column */
+  .pov-cv-grid {
+    grid-template-columns: 1fr !important;
+    overflow-x: hidden;
+  }
+
+  /* Grid items must not exceed column width */
+  .pov-cv-grid > * {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  /* Prevent BaseCard inner content from forcing width */
+  .base-card-inner {
+    min-width: 0 !important;
+  }
+
+  /* ── Base CV screen ────────────────────────────────────────── */
+  .base-content-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .base-nav-rail {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    height: 100dvh !important;
+    width: min(240px, 85vw) !important;
+    z-index: 100;
+    transform: translateX(-100%);
+    transition: transform 0.28s cubic-bezier(0.2, 0.8, 0.3, 1);
+  }
+
+  .base-nav-rail--open {
+    transform: translateX(0) !important;
+    box-shadow: 4px 0 40px rgba(24, 20, 16, 0.32);
+  }
+
+  /* ── CV Builder (TrimmedBuilder) ───────────────────────────── */
+
+  /* Step connector dashes: narrower so dots breathe */
+  .step-dash {
+    width: 10px !important;
+  }
+
+  /* Step text labels: hidden — only numbered dot shown */
+  .step-label {
+    display: none !important;
+  }
+
+  /* Compact header */
+  .builder-header {
+    padding: 10px 14px !important;
+    gap: 8px !important;
+  }
+
+  /* Hide CV name display in header on small screens */
+  .builder-cv-name {
+    display: none !important;
+  }
+
+  /* Outer content wrapper: allow scrolling on mobile (export step needs it) */
+  .step-content-outer {
+    overflow: auto !important;
+  }
+
+  /* Compose step: left panel takes full width */
+  .compose-step-grid {
+    grid-template-columns: 1fr !important;
+    height: auto !important;
+  }
+
+  /* Preview panel hidden by default */
+  .compose-preview-panel {
+    display: none !important;
+  }
+
+  /* Preview panel: full-screen when open */
+  .compose-preview-panel.mobile-preview-open {
+    display: flex !important;
+    flex-direction: column;
+    position: fixed !important;
+    inset: 0;
+    z-index: 80;
+    overflow-y: auto;
+    padding: 16px 20px 80px !important;
+  }
+
+  /* Close button inside preview panel (mobile only) */
+  .preview-mobile-back {
+    display: flex !important;
+  }
+
+  /* Floating "Preview CV" / "Edit" button */
+  .mobile-preview-btn {
+    display: inline-flex !important;
+    position: fixed;
+    bottom: 24px;
+    right: 20px;
+    z-index: 70;
+    box-shadow: var(--shadow-lg);
+  }
+
+  /* Mobile up/down reorder buttons inside entry cards */
+  .mobile-reorder-btns {
+    display: flex !important;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  /* Export step: stack vertically and allow full scroll */
+  .export-step-grid {
+    grid-template-columns: 1fr !important;
+    height: auto !important;
+    min-height: unset !important;
+  }
+
+  .export-preview-col {
+    order: -1;
+    padding: 20px 16px 24px !important;
+    overflow: hidden;
+  }
+
+  .export-options-col {
+    border-left: none !important;
+    border-top: 1.5px solid var(--line);
+    padding: 24px 20px 80px !important;
+    overflow-y: visible !important;
+  }
+
+  /* Creation step: smaller padding */
+  .creation-step-wrap {
+    padding: 24px 20px 60px !important;
+  }
+}

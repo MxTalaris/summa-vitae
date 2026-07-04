@@ -465,6 +465,23 @@ export function BaseCVScreen({ base, onBack, onDone }: BaseCVProps) {
     setDraft((d) => ({ ...d, [key]: items }));
 
   const [active, setActive] = useState('general');
+  const [navOpen, setNavOpen] = useState(false);
+  const [unsavedModal, setUnsavedModal] = useState(false);
+
+  const hasChanges = (() => {
+    const baseSummaryVersions = base.general.summaryVersions?.length
+      ? base.general.summaryVersions
+      : [base.general.summary || ''];
+    return (
+      JSON.stringify(draft) !== JSON.stringify(base) ||
+      JSON.stringify(summaryVersions) !== JSON.stringify(baseSummaryVersions)
+    );
+  })();
+
+  const handleBack = () => {
+    if (hasChanges) setUnsavedModal(true);
+    else onBack();
+  };
   const scrollRef = useRef<HTMLDivElement>(null);
   const secRefs = useRef<Record<string, HTMLElement>>({});
 
@@ -489,12 +506,40 @@ export function BaseCVScreen({ base, onBack, onDone }: BaseCVProps) {
 
   return (
     <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', background: 'var(--paper)' }}>
+      {/* Backdrop for mobile nav rail */}
+      {navOpen && (
+        <div className="mobile-sidebar-backdrop" onClick={() => setNavOpen(false)} />
+      )}
+
+      {/* Unsaved changes confirmation modal */}
+      {unsavedModal && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 200, background: 'rgba(22,18,14,.55)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24,
+        }}>
+          <div className="card sv-pop" style={{ width: 380, padding: '28px 28px 24px', borderColor: 'var(--ink)', borderWidth: 2 }}>
+            <h3 className="serif" style={{ fontSize: 21, fontWeight: 800, marginBottom: 10 }}>Unsaved changes</h3>
+            <p style={{ fontSize: 14, color: 'var(--ink-soft)', lineHeight: 1.5, marginBottom: 22 }}>
+              You have unsaved changes. If you leave now they will be lost.
+            </p>
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+              <button className="btn btn--ghost btn--sm" onClick={() => setUnsavedModal(false)}>Keep editing</button>
+              <button className="btn btn--sm" style={{ background: '#ef4444', color: '#fff', borderColor: '#ef4444' }}
+                onClick={onBack}>Leave anyway</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Top bar */}
       <header style={{
         display: 'flex', alignItems: 'center', gap: 16, padding: '16px 28px',
         borderBottom: '1.5px solid var(--line)', background: 'var(--card)', flexShrink: 0,
       }}>
-        <button className="iconbtn" onClick={onBack} title="Back to studio"><Icon name="arrowL" size={18} /></button>
+        {/* Mobile-only sections button */}
+        <button className="iconbtn mobile-hamburger" onClick={() => setNavOpen(true)} title="Sections">
+          <Icon name="list" size={18} />
+        </button>
         <div>
           <div className="serif" style={{ fontWeight: 800, fontSize: 17, lineHeight: 1 }}>Base CV</div>
           <div className="mono" style={{ fontSize: 10, letterSpacing: '.18em', textTransform: 'uppercase', color: 'var(--ink-faint)', marginTop: 3 }}>
@@ -502,6 +547,10 @@ export function BaseCVScreen({ base, onBack, onDone }: BaseCVProps) {
           </div>
         </div>
         <div style={{ flex: 1 }} />
+        {/* Back button lives here, right before Save & Done */}
+        <button className="btn btn--ghost btn--sm" onClick={handleBack} title="Back to studio">
+          <Icon name="arrowL" size={14} /> Back
+        </button>
         <button className="btn btn--primary" onClick={() => onDone({
           ...draft,
           general: {
@@ -514,15 +563,20 @@ export function BaseCVScreen({ base, onBack, onDone }: BaseCVProps) {
         </button>
       </header>
 
-      <div style={{ flex: 1, display: 'grid', gridTemplateColumns: '232px 1fr', minHeight: 0 }}>
+      <div className="base-content-grid" style={{ flex: 1, display: 'grid', gridTemplateColumns: '232px 1fr', minHeight: 0 }}>
         {/* Section rail */}
-        <nav style={{ borderRight: '1.5px solid var(--line)', padding: '22px 14px', overflowY: 'auto', background: 'var(--paper-2)' }}>
-          <div className="kicker" style={{ padding: '0 10px 12px' }}>Sections</div>
+        <nav className={`base-nav-rail${navOpen ? ' base-nav-rail--open' : ''}`} style={{ borderRight: '1.5px solid var(--line)', padding: '22px 14px', overflowY: 'auto', background: 'var(--paper-2)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', padding: '0 10px 12px' }}>
+            <span className="kicker" style={{ flex: 1 }}>Sections</span>
+            <button className="iconbtn sidebar-mobile-close" onClick={() => setNavOpen(false)} title="Close">
+              <Icon name="x" size={16} />
+            </button>
+          </div>
           {BASE_SECTIONS.map(([id]) => {
             const m = SECTION_META[id];
             const on = active === id;
             return (
-              <button key={id} onClick={() => go(id)} style={{
+              <button key={id} onClick={() => { go(id); setNavOpen(false); }} style={{
                 width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '9px 10px', marginBottom: 2,
                 border: 0, cursor: 'pointer', borderRadius: 8,
                 background: on ? 'var(--card)' : 'transparent', color: on ? 'var(--ink)' : 'var(--ink-soft)',
