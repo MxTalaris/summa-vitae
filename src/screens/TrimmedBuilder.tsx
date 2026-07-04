@@ -1214,6 +1214,7 @@ export function TrimmedBuilder({ base, povs, init, onExit, onSave }: TrimmedBuil
   const [cvId] = useState(() => init.cvId || `cv-${Date.now()}`);
   const [readyToSend, setReadyToSend] = useState(true);
   const [exitModal, setExitModal] = useState(false);
+  const [dirty, setDirty] = useState(false);
 
   useEffect(() => {
     const pov = povs.find((p) => p.id === draft.povId) || povs[0];
@@ -1235,11 +1236,7 @@ export function TrimmedBuilder({ base, povs, init, onExit, onSave }: TrimmedBuil
   const goNext = () => setStep(BUILD_STEPS[Math.min(2, idx + 1)][0]);
   const goPrev = () => { if (idx === 0) onExit(); else setStep(BUILD_STEPS[idx - 1][0]); };
 
-  const isDirty = step !== 'create'
-    || draft.name !== (init.name || '')
-    || draft.style !== (init.style || '')
-    || draft.povId !== init.povId;
-  const handleExit = () => { if (isDirty) setExitModal(true); else onExit(); };
+  const handleExit = () => { if (dirty) setExitModal(true); else onExit(); };
 
   const buildCv = (status: 'draft' | 'ready'): TrimmedCV => {
     const currentSel = sel || defaultSelForFocus(base, (povs.find((p) => p.id === draft.povId) || povs[0]).focus);
@@ -1312,7 +1309,7 @@ export function TrimmedBuilder({ base, povs, init, onExit, onSave }: TrimmedBuil
           {draft.name || 'Untitled CV'}
         </span>
         {canSave && (
-          <button className="btn btn--sm btn--ghost" onClick={() => onSave(draft.povId, buildCv('draft'))} title="Save as draft">
+          <button className="btn btn--sm btn--ghost" onClick={() => { onSave(draft.povId, buildCv('draft')); setDirty(false); }} title="Save as draft">
             <Icon name="doc" size={14} /> Save Draft
           </button>
         )}
@@ -1330,10 +1327,10 @@ export function TrimmedBuilder({ base, povs, init, onExit, onSave }: TrimmedBuil
 
       <div className="step-content-outer" style={{ flex: 1, minHeight: 0, overflow: step === 'create' ? 'auto' : 'hidden' }}>
         {step === 'create' && (
-          <CreationStep base={base} povs={povs} draft={draft} setDraft={setDraft} onContinue={goNext} />
+          <CreationStep base={base} povs={povs} draft={draft} setDraft={(d) => { setDraft(d); setDirty(true); }} onContinue={goNext} />
         )}
         {step === 'compose' && sel && (
-          <ComposeStep base={base} draft={draft} sel={sel} setSel={setSel} onSaveBase={setBaseCV} />
+          <ComposeStep base={base} draft={draft} sel={sel} setSel={(s) => { setSel(s); setDirty(true); }} onSaveBase={setBaseCV} />
         )}
         {step === 'export' && sel && (
           <ExportStep base={base} draft={draft} sel={sel} readyToSend={readyToSend} onReadyChange={setReadyToSend} />
