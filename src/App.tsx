@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useStore } from './store/useStore';
 import { Login } from './screens/Login';
 import { Home, Sidebar, NewPovModal } from './screens/Home';
@@ -210,6 +210,46 @@ export default function App() {
   const [conflictData, setConflictData] = useState<{ remote: DataSnapshot; remoteRaw: RemoteData; fileId: string } | null>(null);
 
   const hasLocalData = lastSaved !== null || baseCV.general.name !== '';
+
+  // ── Hardware / browser back-button ────────────────────────────────────────
+
+  const screenRef = useRef<Screen>(screen);
+  useEffect(() => { screenRef.current = screen; }, [screen]);
+
+  const skipNextPopState = useRef(false);
+
+  // Push a synthetic history entry whenever we leave home so back has something to pop.
+  // Guard against StrictMode double-invoke: skip if current history entry already matches.
+  useEffect(() => {
+    const isHome = screen === 'home' || screen === 'home-new';
+    if (!isHome && window.history.state?.svScreen !== screen) {
+      window.history.pushState({ svScreen: screen }, '');
+    }
+  }, [screen]);
+
+  // Intercept Android native back / browser back — return to home instead of exiting
+  useEffect(() => {
+    const onPopState = (e: PopStateEvent) => {
+      if (skipNextPopState.current) { skipNextPopState.current = false; return; }
+      if (e.state?.svScreen) {
+        setScreen(e.state.svScreen as Screen);
+      } else {
+        const isHome = screenRef.current === 'home' || screenRef.current === 'home-new';
+        if (!isHome) setScreen('home');
+      }
+    };
+    window.addEventListener('popstate', onPopState);
+    return () => window.removeEventListener('popstate', onPopState);
+  }, []);
+
+  // Use instead of setScreen('home') on in-app back buttons — keeps history in sync
+  const goHome = useCallback(() => {
+    if (screenRef.current !== 'home' && screenRef.current !== 'home-new') {
+      skipNextPopState.current = true;
+      window.history.back();
+    }
+    setScreen('home');
+  }, []);
 
 
   // ── Drive sync ────────────────────────────────────────────────────────────
@@ -426,9 +466,9 @@ export default function App() {
     updatePov({ ...pov, cvs: exists ? pov.cvs.map((c) => (c.id === cv.id ? cv : c)) : [...pov.cvs, cv] });
   };
 
-  if (screen === 'base') return <BaseCVScreen base={baseCV} onBack={() => setScreen('home')} onDone={(cv) => { setBaseCV(cv); setScreen('home'); }} />;
-  if (screen === 'sharing') return <SummaSharing base={baseCV} povs={povs} onBack={() => setScreen('home')} />;
-  if (screen === 'build') return <TrimmedBuilder base={baseCV} povs={povs} init={builderInit} onExit={() => setScreen('home')} onSave={handleSaveCv} />;
+  if (screen === 'base') return <BaseCVScreen base={baseCV} onBack={goHome} onDone={(cv) => { setBaseCV(cv); goHome(); }} />;
+  if (screen === 'sharing') return <SummaSharing base={baseCV} povs={povs} onBack={goHome} />;
+  if (screen === 'build') return <TrimmedBuilder base={baseCV} povs={povs} init={builderInit} onExit={goHome} onSave={handleSaveCv} />;
 
   const empty = screen === 'home-new';
   const localSnapshot: DataSnapshot = {
