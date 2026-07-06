@@ -16,6 +16,8 @@ import {
 } from './lib/google';
 import type { RemoteData } from './lib/google';
 import type { BaseCV, Pov, TrimmedCV, BuildStep, CvStyleId, AccentColor } from './types';
+import { TermsContent } from './legal/terms';
+import { PrivacyContent } from './legal/privacy';
 
 type Screen = 'home' | 'home-new' | 'base' | 'sharing' | 'build';
 interface BuilderInit { povId: string; step: BuildStep; name?: string; style?: CvStyleId | ''; cvId?: string; }
@@ -146,6 +148,34 @@ function ErrorModal({ message, onDismiss }: { message: string; onDismiss: () => 
   );
 }
 
+// ── Legal modals (Terms of Service / Privacy Policy) ─────────────────────────
+
+function LegalModal({ kind, onClose }: { kind: 'terms' | 'privacy'; onClose: () => void }) {
+  return (
+    <Overlay>
+      <div className="card" style={{
+        width: '100%', maxWidth: 580, maxHeight: '85vh',
+        border: '2px solid var(--ink)', boxShadow: 'var(--shadow-lg)',
+        display: 'flex', flexDirection: 'column',
+      }}>
+        <div style={{ padding: '28px 32px 20px', borderBottom: '1.5px solid var(--line)', flexShrink: 0 }}>
+          <div className="serif" style={{ fontWeight: 800, fontSize: 20 }}>
+            {kind === 'terms' ? 'Terms of Service' : 'Privacy Policy'}
+          </div>
+        </div>
+        <div style={{ overflowY: 'auto', flex: 1, minHeight: 0, padding: '24px 32px' }}>
+          {kind === 'terms' ? <TermsContent /> : <PrivacyContent />}
+        </div>
+        <div style={{ padding: '16px 32px 24px', borderTop: '1.5px solid var(--line)', flexShrink: 0 }}>
+          <button className="btn" style={{ width: '100%', justifyContent: 'center' }} onClick={onClose}>
+            Close
+          </button>
+        </div>
+      </div>
+    </Overlay>
+  );
+}
+
 // ── Syncing overlay ───────────────────────────────────────────────────────────
 
 function SyncingOverlay() {
@@ -208,6 +238,21 @@ export default function App() {
   const [syncing, setSyncing] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
   const [conflictData, setConflictData] = useState<{ remote: DataSnapshot; remoteRaw: RemoteData; fileId: string } | null>(null);
+
+  const hashToLegal = (h: string): 'terms' | 'privacy' | null =>
+    h === '#terms' ? 'terms' : h === '#privacy' ? 'privacy' : null;
+  const [legalModal, setLegalModal] = useState<'terms' | 'privacy' | null>(
+    () => hashToLegal(window.location.hash)
+  );
+  useEffect(() => {
+    const onHashChange = () => setLegalModal(hashToLegal(window.location.hash));
+    window.addEventListener('hashchange', onHashChange);
+    return () => window.removeEventListener('hashchange', onHashChange);
+  }, []);
+  const closeLegalModal = () => {
+    window.history.replaceState(null, '', window.location.pathname + window.location.search);
+    setLegalModal(null);
+  };
 
   const hasLocalData = lastSaved !== null || baseCV.general.name !== '';
 
@@ -443,6 +488,7 @@ export default function App() {
         {syncing && <SyncingOverlay />}
         {showWarn && <SyncWarningModal onConfirm={proceedWithGoogle} onCancel={() => setShowWarn(false)} />}
         {authError && <ErrorModal message={authError} onDismiss={() => setAuthError(null)} />}
+        {legalModal && <LegalModal kind={legalModal} onClose={closeLegalModal} />}
       </>
     );
   }
@@ -466,9 +512,9 @@ export default function App() {
     updatePov({ ...pov, cvs: exists ? pov.cvs.map((c) => (c.id === cv.id ? cv : c)) : [...pov.cvs, cv] });
   };
 
-  if (screen === 'base') return <BaseCVScreen base={baseCV} onBack={goHome} onDone={(cv) => { setBaseCV(cv); goHome(); }} />;
-  if (screen === 'sharing') return <SummaSharing base={baseCV} povs={povs} onBack={goHome} />;
-  if (screen === 'build') return <TrimmedBuilder base={baseCV} povs={povs} init={builderInit} onExit={goHome} onSave={handleSaveCv} />;
+  if (screen === 'base') return <><BaseCVScreen base={baseCV} onBack={goHome} onDone={(cv) => { setBaseCV(cv); goHome(); }} />{legalModal && <LegalModal kind={legalModal} onClose={closeLegalModal} />}</>;
+  if (screen === 'sharing') return <><SummaSharing base={baseCV} povs={povs} onBack={goHome} />{legalModal && <LegalModal kind={legalModal} onClose={closeLegalModal} />}</>;
+  if (screen === 'build') return <><TrimmedBuilder base={baseCV} povs={povs} init={builderInit} onExit={goHome} onSave={handleSaveCv} />{legalModal && <LegalModal kind={legalModal} onClose={closeLegalModal} />}</>;
 
   const empty = screen === 'home-new';
   const localSnapshot: DataSnapshot = {
@@ -552,6 +598,8 @@ export default function App() {
           onCancel={() => setConflictData(null)}
         />
       )}
+
+      {legalModal && <LegalModal kind={legalModal} onClose={closeLegalModal} />}
     </>
   );
 }

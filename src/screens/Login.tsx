@@ -68,8 +68,8 @@ export function Login({ onContinueWithout, onLoginGoogle }: LoginProps) {
 
         <p className="mono" style={{ fontSize: 10.5, color: 'var(--ink-faint)', marginTop: 22, lineHeight: 1.6, textAlign: 'center' }}>
           By continuing you agree to keep one honest record.<br />
-          <span style={{ textDecoration: 'underline', cursor: 'pointer' }}>Terms</span> ·{' '}
-          <span style={{ textDecoration: 'underline', cursor: 'pointer' }}>Privacy</span>
+          <a href="#terms" style={{ textDecoration: 'underline', color: 'inherit' }}>Terms</a> ·{' '}
+          <a href="#privacy" style={{ textDecoration: 'underline', color: 'inherit' }}>Privacy</a>
         </p>
       </div>
     </div>
