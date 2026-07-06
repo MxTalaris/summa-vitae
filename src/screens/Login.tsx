@@ -47,7 +47,7 @@ export function Login({ onContinueWithout, onLoginGoogle }: LoginProps) {
           textAlign: 'center', fontSize: 11, letterSpacing: '.26em', textTransform: 'uppercase',
           color: 'var(--ink-faint)', marginTop: 8, marginBottom: 30,
         }}>
-          The sum of your work
+          The sum of your professional life
         </p>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -55,6 +55,10 @@ export function Login({ onContinueWithout, onLoginGoogle }: LoginProps) {
             <Icon name="google" size={18} /> Continue with Google
           </button>
         </div>
+
+        <p className="mono" style={{ fontSize: 10.5, color: 'var(--ink-faint)', marginTop: 10, lineHeight: 1.6, textAlign: 'center' }}>
+          For cross-device data persistency only
+        </p>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '22px 0 16px' }}>
           <hr className="divider" style={{ flex: 1 }} />
