@@ -8,7 +8,6 @@ import type { BaseCV, CvStyleId, CvSelection } from '../types';
 export const ATS_FRIENDLY_STYLES = new Set<CvStyleId>(['ledger', 'manuscript']);
 
 const A4_W_MM = 210;
-const A4_H_MM = 297;
 const A4_W_PX = 794;
 
 async function rasterizeCv(cvHtml: string): Promise<{ dataUrl: string; heightPx: number }> {
@@ -36,18 +35,11 @@ function buildAndSavePdf(
   safeTitle: string
 ): void {
   const imgHeightMm = (heightPx / A4_W_PX) * A4_W_MM;
-  const pageCount = Math.ceil(imgHeightMm / A4_H_MM);
 
-  const doc = new jsPDF({ unit: 'mm', format: 'a4' });
-
-  for (let i = 0; i < pageCount; i++) {
-    if (i > 0) doc.addPage();
-    // Shift the image up so each page shows the correct vertical slice
-    doc.addImage(dataUrl, 'JPEG', 0, -(i * A4_H_MM), A4_W_MM, imgHeightMm);
-  }
+  const doc = new jsPDF({ unit: 'mm', format: [A4_W_MM, imgHeightMm] });
+  doc.addImage(dataUrl, 'JPEG', 0, 0, A4_W_MM, imgHeightMm);
 
   if (atsText) {
-    doc.setPage(1);
     doc.setFontSize(8);
     doc.text(doc.splitTextToSize(atsText, A4_W_MM), 5, 10, { renderingMode: 'invisible' });
   }

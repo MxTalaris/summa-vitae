@@ -103,7 +103,9 @@ function CvItem({ section, item }: { section: string; item: any }) {
         <span className="cv-role">{item.name as string}</span>
         <span className="cv-meta">{item.year as string}</span>
       </div>
-      <div className="cv-sub">{item.role as string} · {item.url as string}</div>
+      <div className="cv-sub">
+        {item.kind !== 'external' && item.role ? `${item.role as string} · ` : ''}{item.url as string}
+      </div>
       <ul className="cv-bullets"><li>{item.desc as string}</li></ul>
     </div>
   );
