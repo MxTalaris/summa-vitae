@@ -1,6 +1,7 @@
 import React, { useRef, useLayoutEffect, useState } from 'react';
 import './cv.css';
 import type { BaseCV, CvStyleId, CvSelection, SkillGroup } from '../types';
+import { useTranslations } from '../i18n/useTranslations';
 
 const CV_LAYOUTS: Record<string, {
   kind: 'single' | 'two' | 'sidebar';
@@ -160,10 +161,12 @@ function CvItem({ section, item }: { section: string; item: any }) {
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function CvSection({ section, items }: { section: string; items: any[] }) {
+  const t = useTranslations();
   if (!items.length) return null;
+  const title = (t.cv as Record<string, string>)[section] ?? SECTION_TITLES[section];
   return (
     <section className="cv-sec">
-      <h2 className="cv-sec-title">{SECTION_TITLES[section]}</h2>
+      <h2 className="cv-sec-title">{title}</h2>
       {items.map((it) => <CvItem key={it.id as string} section={section} item={it} />)}
     </section>
   );

@@ -102,6 +102,7 @@ export interface BaseCV {
 
 export type CvStyleId = 'ledger' | 'broadsheet' | 'monolith' | 'manuscript';
 export type AccentColor = 'pink' | 'blue' | 'teal' | 'yellow' | 'orange';
+export type CvLanguage = 'en' | 'pt-br';
 
 export interface CvStyle {
   id: CvStyleId;

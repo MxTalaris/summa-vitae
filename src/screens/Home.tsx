@@ -5,6 +5,8 @@ import { CVThumb } from '../cv/CVRenderer';
 import { defaultSelForFocus } from '../cv/CVRenderer';
 import type { BaseCV, Pov, TrimmedCV, AccentColor, AuthProvider } from '../types';
 import { CV_STYLES } from '../data/seed';
+import { useStore } from '../store/useStore';
+import { useTranslations, LANGUAGES } from '../i18n/useTranslations';
 
 /* ---- Sidebar ---- */
 interface SidebarProps {
@@ -25,6 +27,7 @@ interface SidebarProps {
 export function Sidebar({ nav, onNav, povs, onNewPov, onNewCv, onOpenCv, userName, authProvider, onLoginGoogle, onLogout, isOpen, onClose }: SidebarProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const t = useTranslations();
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -37,8 +40,8 @@ export function Sidebar({ nav, onNav, povs, onNewPov, onNewCv, onOpenCv, userNam
     return () => document.removeEventListener('mousedown', handler);
   }, [menuOpen]);
   const items: [string, string, string][] = [
-    ['home',    'home',  'Studio'],
-    ['base',    'doc',   'Base CV'],
+    ['home', 'home', t.nav.studio],
+    ['base', 'doc',  t.nav.baseCV],
     // TODO: URL sharing — re-enable when Summa Sharing is wired up
     // ['sharing', 'share', 'Summa Sharing'],
   ];
@@ -509,6 +512,22 @@ interface BaseCardProps {
 }
 
 function BaseCard({ base, empty, onEdit, highlight }: BaseCardProps) {
+  const { cvLanguage, setCvLanguage } = useStore();
+  const t = useTranslations();
+  const [langDropOpen, setLangDropOpen] = React.useState(false);
+  const langDropRef = React.useRef<HTMLDivElement>(null);
+
+  React.useEffect(() => {
+    if (!langDropOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (langDropRef.current && !langDropRef.current.contains(e.target as Node)) {
+        setLangDropOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [langDropOpen]);
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const allEntries: any[] = empty ? [] : [
     ...base.work, ...base.education, ...base.portfolio,
@@ -517,6 +536,7 @@ function BaseCard({ base, empty, onEdit, highlight }: BaseCardProps) {
   const entryCount = allEntries.length;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const variationCount = allEntries.filter((e: any) => Array.isArray(e.versions) && e.versions.length >= 2).length;
+
   return (
     <div className="grain" style={{
       position: 'relative', overflow: 'hidden',
@@ -530,32 +550,91 @@ function BaseCard({ base, empty, onEdit, highlight }: BaseCardProps) {
       }}>Σ</span>
       <div style={{ position: 'relative', zIndex: 1, display: 'flex', alignItems: 'center', gap: 28, flexWrap: 'wrap' }}>
         <div className="base-card-inner" style={{ flex: 1, minWidth: 280 }}>
-          <div className="kicker" style={{ color: 'var(--yellow)' }}>Source of Record</div>
+          <div className="kicker" style={{ color: 'var(--yellow)' }}>{t.home.sourceOfRecord}</div>
           <h2 className="serif" style={{
             fontSize: 30, fontWeight: 800, marginTop: 10, color: 'var(--paper)', letterSpacing: '-.01em',
-          }}>Your Base CV</h2>
+          }}>{t.home.yourBaseCV}</h2>
           <p className="serif" style={{
             fontSize: 15, lineHeight: 1.5, color: 'rgba(244,236,219,.72)', margin: '8px 0 0', maxWidth: 520,
           }}>
-            {empty
-              ? 'The canonical record of everything you\'ve done. Every tailored CV is drawn from this — so start here.'
-              : 'Everything you\'ve done, kept in one honest place. Every POV below draws its readings from this record.'}
+            {empty ? t.home.baseCVDescEmpty : t.home.baseCVDescFull}
           </p>
           <div style={{ display: 'flex', gap: 22, marginTop: 20, alignItems: 'center' }}>
             <button className="btn btn--lg"
               style={{ background: 'var(--yellow)', borderColor: 'var(--paper)', color: 'var(--ink)' }}
               onClick={onEdit}>
               <Icon name={empty ? 'plus' : 'pencil'} size={18} color="var(--ink)" />
-              {empty ? 'Create your Base CV' : 'Edit Base CV'}
+              {empty ? t.home.createBaseCV : t.home.editBaseCV}
             </button>
             {!empty && (
               <div style={{ display: 'flex', gap: 24 }}>
-                <Stat n={entryCount} label="entries" />
-                <Stat n={variationCount} label="variations" />
+                <Stat n={entryCount} label={t.home.entries} />
+                <Stat n={variationCount} label={t.home.variations} />
               </div>
             )}
           </div>
         </div>
+      </div>
+
+      {/* Language dropdown — bottom-right corner */}
+      <div ref={langDropRef} style={{ position: 'absolute', bottom: 16, right: 20, zIndex: 10 }}>
+        {/* Dropdown list — rendered above the button */}
+        {langDropOpen && (
+          <div style={{
+            position: 'absolute', bottom: 'calc(100% + 6px)', right: 0,
+            background: '#1a1610', border: '1px solid rgba(255,255,255,0.22)',
+            borderRadius: 10, padding: '4px 0', minWidth: 170,
+            boxShadow: '0 8px 28px rgba(0,0,0,0.55)',
+          }}>
+            {LANGUAGES.map((lang) => {
+              const active = cvLanguage === lang.id;
+              return (
+                <button
+                  key={lang.id}
+                  onClick={() => { setCvLanguage(lang.id); setLangDropOpen(false); }}
+                  style={{
+                    width: '100%', textAlign: 'left', padding: '9px 14px', border: 0, cursor: 'pointer',
+                    display: 'flex', alignItems: 'center', gap: 10, background: 'transparent',
+                    color: active ? 'var(--yellow)' : 'rgba(244,236,219,0.82)',
+                    fontFamily: 'var(--sans)', fontSize: 13.5, fontWeight: active ? 700 : 500,
+                    transition: 'background .1s',
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(255,255,255,0.07)')}
+                  onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+                >
+                  {active
+                    ? <Icon name="check" size={13} color="var(--yellow)" />
+                    : <span style={{ width: 13, display: 'inline-block' }} />}
+                  {lang.label}
+                </button>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Trigger button */}
+        <button
+          onClick={() => setLangDropOpen((o) => !o)}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 6,
+            padding: '5px 10px', borderRadius: 7, cursor: 'pointer',
+            background: langDropOpen ? 'rgba(255,255,255,0.18)' : 'rgba(255,255,255,0.10)',
+            border: '1px solid rgba(255,255,255,0.18)',
+            color: 'rgba(244,236,219,0.82)', fontFamily: 'var(--mono)', fontSize: 11,
+            fontWeight: 700, letterSpacing: '.08em', transition: 'all .15s',
+          }}
+          onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(255,255,255,0.18)')}
+          onMouseLeave={(e) => {
+            if (!langDropOpen) e.currentTarget.style.background = 'rgba(255,255,255,0.10)';
+          }}
+        >
+          <Icon name="globe" size={13} color="currentColor" />
+          {t.languageShort}
+          <Icon name="chevD" size={10} color="currentColor" style={{
+            marginLeft: 2, transition: 'transform .15s',
+            transform: langDropOpen ? 'rotate(180deg)' : 'rotate(0deg)',
+          }} />
+        </button>
       </div>
     </div>
   );
@@ -638,9 +717,17 @@ interface HomeProps {
 }
 
 export function Home({ base, povs, empty, onEditBase, onNewPov, onNewCv, onPreview, onEdit, onDuplicateCv, onEditPov, onDeletePov, onDeleteCv }: HomeProps) {
-  const [tour, setTour] = useState(empty ? 0 : -1);
+  const isNewUser = useStore(s => s.isNewUser);
+  // Only show onboarding tour for true first-time users, not when switching to an empty language session
+  const [tour, setTour] = useState(empty && isNewUser ? 0 : -1);
+  const t = useTranslations();
   const hour = new Date().getHours();
   const greet = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
+  // Fall back to any session's name so the greeting stays populated when switching to a new language
+  const anySessionFirstName = useStore(s =>
+    Object.values(s.sessions).find(sess => sess?.baseCV.general.name)?.baseCV.general.name?.split(' ')[0] ?? ''
+  );
+  const firstName = base.general.name.split(' ')[0] || anySessionFirstName;
 
   return (
     <div className="home-content-wrap" style={{ maxWidth: 1180, margin: '0 auto', padding: '40px 44px 120px' }}>
@@ -651,11 +738,11 @@ export function Home({ base, povs, empty, onEditBase, onNewPov, onNewCv, onPrevi
         <div>
           <div className="kicker">{greet}</div>
           <h1 className="serif" style={{ fontSize: 38, fontWeight: 800, letterSpacing: '-.02em', marginTop: 8 }}>
-            {base.general.name ? `${base.general.name.split(' ')[0]}'s studio` : 'My Studio'}
+            {firstName ? `${firstName}${t.home.studioSuffix}` : t.home.myStudio}
           </h1>
         </div>
         <button className="btn btn--accent" onClick={onNewPov}>
-          <Icon name="plus" size={16} color="#fff" /> New POV
+          <Icon name="plus" size={16} color="#fff" /> {t.home.newPOV}
         </button>
       </div>
 
@@ -664,9 +751,9 @@ export function Home({ base, povs, empty, onEditBase, onNewPov, onNewCv, onPrevi
       <div style={{ display: 'flex', alignItems: 'center', gap: 14, margin: '44px 0 4px' }}>
         <h2 className="serif" style={{
           fontSize: 15, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '.12em', color: 'var(--ink-soft)',
-        }}>Points of View</h2>
+        }}>{t.home.pointsOfView}</h2>
         <hr className="divider" style={{ flex: 1 }} />
-        <span className="mono" style={{ fontSize: 11, color: 'var(--ink-faint)' }}>{povs.length} lenses</span>
+        <span className="mono" style={{ fontSize: 11, color: 'var(--ink-faint)' }}>{povs.length} {t.home.lenses}</span>
       </div>
 
       {empty ? (

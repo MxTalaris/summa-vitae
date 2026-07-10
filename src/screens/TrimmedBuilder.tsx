@@ -2,6 +2,7 @@ import { Fragment, useState, useEffect } from 'react';
 import { Icon } from '../components/Icon';
 import { Chip, Kicker, SECTION_META } from '../components/primitives';
 import { FitPaper, defaultSelForFocus, pickItems, SECTION_TITLES, CVDocument } from '../cv/CVRenderer';
+import { useTranslations } from '../i18n/useTranslations';
 import { COMPOSE_ORDER, itemLabel } from '../cv/ats';
 import { downloadCvPdf, ATS_FRIENDLY_STYLES } from '../lib/pdf';
 import { CV_STYLES } from '../data/seed';
@@ -114,16 +115,18 @@ interface AddPickerProps {
 }
 
 function AddPicker({ base, section, sel, onAdd, onClose }: AddPickerProps) {
+  const t = useTranslations();
   const included = (sel[section] as string[]) || [];
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const all = ((base as any)[section] as { id: string }[]) || [];
   const avail = all.filter((it) => !included.includes(it.id));
+  const sectionTitle = (t.cv as Record<string, string>)[section] ?? SECTION_TITLES[section];
 
   return (
     <div className="card sv-pop" style={{ marginTop: 8, padding: 10, borderColor: 'var(--ink)', boxShadow: 'var(--shadow)' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '2px 6px 8px' }}>
         <span className="mono" style={{ fontSize: 10.5, letterSpacing: '.12em', textTransform: 'uppercase', color: 'var(--ink-faint)' }}>
-          From your Base CV · {SECTION_TITLES[section]}
+          {t.builder.fromBaseCV} · {sectionTitle}
         </span>
         <Icon name="x" size={14} style={{ cursor: 'pointer' }} onClick={onClose} />
       </div>
@@ -233,36 +236,37 @@ function CustomEntryForm({ section, data, setField }: {
   data: Record<string, unknown>;
   setField: (k: string, v: unknown) => void;
 }) {
+  const t = useTranslations();
   const str = (k: string) => (Array.isArray(data[k]) ? (data[k] as string[]).join(k === 'bullets' ? '\n' : ', ') : String(data[k] ?? ''));
   const set = (k: string) => (v: string) => setField(k, v);
 
   if (section === 'work') return (
     <>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-        <MF label="Role" value={str('role')} onChange={set('role')} />
-        <MF label="Organisation" value={str('org')} onChange={set('org')} />
+        <MF label={t.fields.role} value={str('role')} onChange={set('role')} />
+        <MF label={t.fields.organisation} value={str('org')} onChange={set('org')} />
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 12, marginTop: 10 }}>
-        <MF label="From" value={str('start')} onChange={set('start')} />
-        <MF label="To" value={str('end')} onChange={set('end')} />
-        <MF label="Location" value={str('location')} onChange={set('location')} />
-        <MF label="Tags" value={str('tags')} onChange={set('tags')} />
+        <MF label={t.fields.from} value={str('start')} onChange={set('start')} />
+        <MF label={t.fields.to} value={str('end')} onChange={set('end')} />
+        <MF label={t.fields.location} value={str('location')} onChange={set('location')} />
+        <MF label={t.fields.tags} value={str('tags')} onChange={set('tags')} />
       </div>
-      <div style={{ marginTop: 10 }}><MF label="One-line summary" value={str('blurb')} onChange={set('blurb')} /></div>
-      <div style={{ marginTop: 10 }}><MF label="Highlights (one per line)" value={str('bullets')} onChange={set('bullets')} area /></div>
+      <div style={{ marginTop: 10 }}><MF label={t.fields.oneLineSummary} value={str('blurb')} onChange={set('blurb')} /></div>
+      <div style={{ marginTop: 10 }}><MF label={t.fields.highlights} value={str('bullets')} onChange={set('bullets')} area /></div>
     </>
   );
 
   if (section === 'education') return (
     <>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-        <MF label="Degree / programme" value={str('degree')} onChange={set('degree')} />
-        <MF label="Institution" value={str('org')} onChange={set('org')} />
+        <MF label={t.fields.degree} value={str('degree')} onChange={set('degree')} />
+        <MF label={t.fields.institution} value={str('org')} onChange={set('org')} />
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 2fr', gap: 12, marginTop: 10 }}>
-        <MF label="From" value={str('start')} onChange={set('start')} />
-        <MF label="To" value={str('end')} onChange={set('end')} />
-        <MF label="Note" value={str('note')} onChange={set('note')} />
+        <MF label={t.fields.from} value={str('start')} onChange={set('start')} />
+        <MF label={t.fields.to} value={str('end')} onChange={set('end')} />
+        <MF label={t.fields.note} value={str('note')} onChange={set('note')} />
       </div>
     </>
   );
@@ -270,37 +274,37 @@ function CustomEntryForm({ section, data, setField }: {
   if (section === 'portfolio') return (
     <>
       <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: 12 }}>
-        <MF label="Project" value={str('name')} onChange={set('name')} />
-        <MF label="Role" value={str('role')} onChange={set('role')} />
-        <MF label="Year" value={str('year')} onChange={set('year')} />
+        <MF label={t.fields.project} value={str('name')} onChange={set('name')} />
+        <MF label={t.fields.role} value={str('role')} onChange={set('role')} />
+        <MF label={t.fields.year} value={str('year')} onChange={set('year')} />
       </div>
-      <div style={{ marginTop: 10 }}><MF label="Description" value={str('desc')} onChange={set('desc')} area /></div>
+      <div style={{ marginTop: 10 }}><MF label={t.fields.description} value={str('desc')} onChange={set('desc')} area /></div>
     </>
   );
 
   if (section === 'other') return (
     <>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
-        <MF label="What" value={str('title')} onChange={set('title')} />
-        <MF label="Where" value={str('org')} onChange={set('org')} />
-        <MF label="When" value={str('period')} onChange={set('period')} />
+        <MF label={t.fields.what} value={str('title')} onChange={set('title')} />
+        <MF label={t.fields.where} value={str('org')} onChange={set('org')} />
+        <MF label={t.fields.when} value={str('period')} onChange={set('period')} />
       </div>
-      <div style={{ marginTop: 10 }}><MF label="Description" value={str('desc')} onChange={set('desc')} area /></div>
+      <div style={{ marginTop: 10 }}><MF label={t.fields.description} value={str('desc')} onChange={set('desc')} area /></div>
     </>
   );
 
   if (section === 'certs') return (
     <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: 12 }}>
-      <MF label="Certification" value={str('name')} onChange={set('name')} />
-      <MF label="Issuer" value={str('org')} onChange={set('org')} />
-      <MF label="Year" value={str('year')} onChange={set('year')} />
+      <MF label={t.fields.certification} value={str('name')} onChange={set('name')} />
+      <MF label={t.fields.issuer} value={str('org')} onChange={set('org')} />
+      <MF label={t.fields.year} value={str('year')} onChange={set('year')} />
     </div>
   );
 
   if (section === 'languages') return (
     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-      <MF label="Language" value={str('name')} onChange={set('name')} />
-      <MF label="Proficiency" value={str('level')} onChange={set('level')} />
+      <MF label={t.fields.language} value={str('name')} onChange={set('name')} />
+      <MF label={t.fields.proficiency} value={str('level')} onChange={set('level')} />
     </div>
   );
 

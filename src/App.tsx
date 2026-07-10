@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { useStore } from './store/useStore';
+import { useStore, useCurrentSession } from './store/useStore';
 import { Login } from './screens/Login';
 import { Home, Sidebar, NewPovModal } from './screens/Home';
 import { BaseCVScreen } from './screens/BaseCV';
@@ -224,10 +224,16 @@ export default function App() {
   const {
     isLoggedIn, isNewUser, authProvider, lastSaved,
     googleToken, googleUser, driveFileId,
-    baseCV, povs,
     login, logout, setGoogleSession, clearGoogleSession, setDriveFileId,
     setBaseCV, setPovs, addPov, updatePov, deletePov, deleteCv,
   } = useStore();
+
+  // baseCV and povs are derived from the active language session
+  const { baseCV, povs } = useCurrentSession();
+  // Fall back to any session's name so the sidebar stays populated when switching to an empty language
+  const anySessionName = useStore(s =>
+    Object.values(s.sessions).find(sess => sess?.baseCV.general.name)?.baseCV.general.name ?? ''
+  );
 
   const [screen, setScreen] = useState<Screen>('home');
   const [showNewPov, setShowNewPov] = useState(false);
@@ -516,7 +522,8 @@ export default function App() {
   if (screen === 'sharing') return <><SummaSharing base={baseCV} povs={povs} onBack={goHome} />{legalModal && <LegalModal kind={legalModal} onClose={closeLegalModal} />}</>;
   if (screen === 'build') return <><TrimmedBuilder base={baseCV} povs={povs} init={builderInit} onExit={goHome} onSave={handleSaveCv} />{legalModal && <LegalModal kind={legalModal} onClose={closeLegalModal} />}</>;
 
-  const empty = screen === 'home-new';
+  // empty when this language session has no base CV yet, OR on first-ever login
+  const empty = screen === 'home-new' || baseCV.general.name === '';
   const localSnapshot: DataSnapshot = {
     label: 'This device',
     lastSaved,
@@ -540,7 +547,7 @@ export default function App() {
           onNewPov={() => setShowNewPov(true)}
           onNewCv={handleNewCv}
           onOpenCv={handleOpenCv}
-          userName={googleUser?.name ?? baseCV.general.name}
+          userName={googleUser?.name ?? (baseCV.general.name || anySessionName)}
           authProvider={authProvider}
           onLoginGoogle={initiateGoogleLogin}
           onLogout={handleLogout}

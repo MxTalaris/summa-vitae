@@ -2,6 +2,7 @@ import React, { useRef, useState } from 'react';
 import { Icon } from '../components/Icon';
 import { Stars, SECTION_META } from '../components/primitives';
 import type { BaseCV, SkillGroup, SkillItem } from '../types';
+import { useTranslations } from '../i18n/useTranslations';
 
 const BASE_SECTIONS: [string, string][] = [
   ['general',   'General Info'],
@@ -70,13 +71,13 @@ function SegToggle({ value, options, onChange }: {
 }
 
 /* Version bar */
-function VersionBar({ count, active, onSelect, onAdd, max = 4 }: {
-  count: number; active: number; onSelect: (i: number) => void; onAdd: () => void; max?: number;
+function VersionBar({ count, active, onSelect, onAdd, max = 4, label }: {
+  count: number; active: number; onSelect: (i: number) => void; onAdd: () => void; max?: number; label: string;
 }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
       <span className="mono" style={{ fontSize: 9.5, letterSpacing: '.16em', textTransform: 'uppercase', color: 'var(--ink-faint)' }}>
-        Versions
+        {label}
       </span>
       <div style={{ display: 'flex', gap: 4 }}>
         {Array.from({ length: count }).map((_, i) => {
@@ -174,7 +175,9 @@ function VersionedSection({ id, meta, initial, makeBlank, renderFields, addLabel
   refCb?: (el: HTMLElement | null) => void;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   onChange?: (items: any[]) => void;
+  versionsLabel?: string;
 }) {
+  const t = useTranslations();
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [items, setItems] = useState<{ key: string; active: number; versions: any[] }[]>(() =>
     initial.map((seed) => {
@@ -219,7 +222,7 @@ function VersionedSection({ id, meta, initial, makeBlank, renderFields, addLabel
           x.versions.length >= 4 ? x : { ...x, versions: [...x.versions, { ...x.versions[x.active] }], active: x.versions.length });
         return (
           <Entry key={it.key} n={idx + 1} onRemove={() => removeItem(idx)}
-            top={<VersionBar count={it.versions.length} active={it.active} onSelect={selectV} onAdd={addV} />}>
+            top={<VersionBar count={it.versions.length} active={it.active} onSelect={selectV} onAdd={addV} label={t.baseCV.versionsLabel} />}>
             {renderFields(data, setField)}
           </Entry>
         );
@@ -277,30 +280,20 @@ function PortfolioImages({ images, onChange }: { images: string[]; onChange: (im
 }
 
 /* Skills editor with star subgroups */
-const STAR_LEVELS = [
-  { stars: 3, label: 'Absolute expert', hint: 'deep — can set direction & lead others' },
-  { stars: 2, label: 'Knows a lot',     hint: 'strong, fully independent' },
-  { stars: 1, label: 'Knows something', hint: 'working familiarity' },
-];
-
-function SkillChip({ name, onName, onRemove }: { name: string; onName: (v: string) => void; onRemove: () => void }) {
-  return (
-    <span className="chip" style={{ paddingRight: 6, gap: 6 }}>
-      <input value={name} onChange={(e) => onName(e.target.value)} placeholder="skill" style={{
-        border: 0, background: 'transparent', font: 'inherit', color: 'inherit',
-        width: `${Math.max((name || '').length, 4) + 1}ch`, outline: 'none', padding: 0,
-      }} />
-      <Icon name="x" size={11} style={{ cursor: 'pointer', opacity: .5 }} onClick={onRemove} />
-    </span>
-  );
-}
-
 interface SkillsEditorProps {
   groups: SkillGroup[];
   onChange?: (groups: SkillGroup[]) => void;
 }
 
 function SkillsEditor({ groups, onChange }: SkillsEditorProps) {
+  const t = useTranslations();
+
+  const STAR_LEVELS = [
+    { stars: 3, label: t.skills.absoluteExpert, hint: t.skills.expertHint },
+    { stars: 2, label: t.skills.knowsALot,      hint: t.skills.knowsALotHint },
+    { stars: 1, label: t.skills.knowsSomething, hint: t.skills.knowsSomethingHint },
+  ];
+
   const [data, setData] = useState(() =>
     groups.map((g) => ({
       key: g.id, group: g.group, tags: g.tags || [],
@@ -340,7 +333,7 @@ function SkillsEditor({ groups, onChange }: SkillsEditorProps) {
             borderBottom: '1.5px solid var(--line)', background: 'var(--paper-2)',
           }}>
             <Icon name="folder" size={15} color="var(--teal)" />
-            <input value={g.group} onChange={(e) => renameGroup(gi, e.target.value)} placeholder="Group name"
+            <input value={g.group} onChange={(e) => renameGroup(gi, e.target.value)} placeholder={t.skills.groupNamePlaceholder}
               className="serif" style={{ flex: 1, border: 0, background: 'transparent', fontWeight: 800, fontSize: 15, color: 'var(--ink)', outline: 'none' }} />
             <button className="iconbtn" style={{ width: 28, height: 28 }} onClick={() => removeGroup(gi)} title="Remove group">
               <Icon name="trash" size={14} />
@@ -358,13 +351,17 @@ function SkillsEditor({ groups, onChange }: SkillsEditorProps) {
                   </div>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
                     {bucket.map((it) => (
-                      <SkillChip key={it.iid} name={it.name}
-                        onName={(v) => nameSkill(gi, it.iid, v)}
-                        onRemove={() => removeSkill(gi, it.iid)} />
+                      <span key={it.iid} className="chip" style={{ paddingRight: 6, gap: 6 }}>
+                        <input value={it.name} onChange={(e) => nameSkill(gi, it.iid, e.target.value)} placeholder={t.skills.skillPlaceholder} style={{
+                          border: 0, background: 'transparent', font: 'inherit', color: 'inherit',
+                          width: `${Math.max((it.name || '').length, 4) + 1}ch`, outline: 'none', padding: 0,
+                        }} />
+                        <Icon name="x" size={11} style={{ cursor: 'pointer', opacity: .5 }} onClick={() => removeSkill(gi, it.iid)} />
+                      </span>
                     ))}
                     <button onClick={() => addSkill(gi, lv.stars)} className="chip"
                       style={{ borderStyle: 'dashed', cursor: 'pointer', color: 'var(--ink-faint)' }}>
-                      <Icon name="plus" size={11} /> add
+                      <Icon name="plus" size={11} /> {t.skills.add}
                     </button>
                   </div>
                 </div>
@@ -373,7 +370,7 @@ function SkillsEditor({ groups, onChange }: SkillsEditorProps) {
           </div>
         </div>
       ))}
-      <AddBtn label="Add skill group" onClick={addGroup} />
+      <AddBtn label={t.buttons.addSkillGroup} onClick={addGroup} />
     </>
   );
 }
@@ -396,8 +393,15 @@ function toArr(v: unknown, sep = ','): string[] {
 }
 
 export function BaseCVScreen({ base, onBack, onDone }: BaseCVProps) {
+  const t = useTranslations();
   const [draft, setDraft] = useState<BaseCV>(() => JSON.parse(JSON.stringify(base)));
   const g = draft.general;
+
+  // Build translated section meta at render time
+  const tMeta = (id: string) => ({
+    ...SECTION_META[id],
+    label: (t.sections as Record<string, string>)[id] ?? SECTION_META[id]?.label ?? id,
+  });
 
   const [summaryVersions, setSummaryVersions] = useState<string[]>(() => {
     const stored = base.general.summaryVersions;
@@ -518,14 +522,14 @@ export function BaseCVScreen({ base, onBack, onDone }: BaseCVProps) {
           display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24,
         }}>
           <div className="card sv-pop" style={{ width: 380, padding: '28px 28px 24px', borderColor: 'var(--ink)', borderWidth: 2 }}>
-            <h3 className="serif" style={{ fontSize: 21, fontWeight: 800, marginBottom: 10 }}>Unsaved changes</h3>
+            <h3 className="serif" style={{ fontSize: 21, fontWeight: 800, marginBottom: 10 }}>{t.baseCV.unsavedTitle}</h3>
             <p style={{ fontSize: 14, color: 'var(--ink-soft)', lineHeight: 1.5, marginBottom: 22 }}>
-              You have unsaved changes. If you leave now they will be lost.
+              {t.baseCV.unsavedDesc}
             </p>
             <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-              <button className="btn btn--ghost btn--sm" onClick={() => setUnsavedModal(false)}>Keep editing</button>
+              <button className="btn btn--ghost btn--sm" onClick={() => setUnsavedModal(false)}>{t.buttons.keepEditing}</button>
               <button className="btn btn--sm" style={{ background: '#ef4444', color: '#fff', borderColor: '#ef4444' }}
-                onClick={onBack}>Leave anyway</button>
+                onClick={onBack}>{t.buttons.leaveAnyway}</button>
             </div>
           </div>
         </div>
@@ -541,15 +545,15 @@ export function BaseCVScreen({ base, onBack, onDone }: BaseCVProps) {
           <Icon name="list" size={18} />
         </button>
         <div>
-          <div className="serif" style={{ fontWeight: 800, fontSize: 17, lineHeight: 1 }}>Base CV</div>
+          <div className="serif" style={{ fontWeight: 800, fontSize: 17, lineHeight: 1 }}>{t.baseCV.title}</div>
           <div className="mono" style={{ fontSize: 10, letterSpacing: '.18em', textTransform: 'uppercase', color: 'var(--ink-faint)', marginTop: 3 }}>
-            Source of Record · autosaved
+            {t.baseCV.subtitle}
           </div>
         </div>
         <div style={{ flex: 1 }} />
         {/* Back button lives here, right before Save & Done */}
         <button className="btn btn--ghost btn--sm" onClick={handleBack} title="Back to studio">
-          <Icon name="arrowL" size={14} /> Back
+          <Icon name="arrowL" size={14} /> {t.buttons.back}
         </button>
         <button className="btn btn--primary" onClick={() => onDone({
           ...draft,
@@ -559,7 +563,7 @@ export function BaseCVScreen({ base, onBack, onDone }: BaseCVProps) {
             summaryVersions,
           },
         })}>
-          <Icon name="check" size={16} color="var(--paper)" /> Save &amp; Done
+          <Icon name="check" size={16} color="var(--paper)" /> {t.buttons.saveAndDone}
         </button>
       </header>
 
@@ -567,7 +571,7 @@ export function BaseCVScreen({ base, onBack, onDone }: BaseCVProps) {
         {/* Section rail */}
         <nav className={`base-nav-rail${navOpen ? ' base-nav-rail--open' : ''}`} style={{ borderRight: '1.5px solid var(--line)', padding: '22px 14px', overflowY: 'auto', background: 'var(--paper-2)' }}>
           <div style={{ display: 'flex', alignItems: 'center', padding: '0 10px 12px' }}>
-            <span className="kicker" style={{ flex: 1 }}>Sections</span>
+            <span className="kicker" style={{ flex: 1 }}>{t.baseCV.sectionsLabel}</span>
             <button className="iconbtn sidebar-mobile-close" onClick={() => setNavOpen(false)} title="Close">
               <Icon name="x" size={16} />
             </button>
@@ -575,6 +579,7 @@ export function BaseCVScreen({ base, onBack, onDone }: BaseCVProps) {
           {BASE_SECTIONS.map(([id]) => {
             const m = SECTION_META[id];
             const on = active === id;
+            const sectionLabel = (t.sections as Record<string, string>)[id] ?? m?.label ?? id;
             return (
               <button key={id} onClick={() => { go(id); setNavOpen(false); }} style={{
                 width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '9px 10px', marginBottom: 2,
@@ -584,16 +589,16 @@ export function BaseCVScreen({ base, onBack, onDone }: BaseCVProps) {
                 textAlign: 'left', fontFamily: 'var(--sans)', fontSize: 13.5, fontWeight: on ? 700 : 500, transition: 'all .12s',
               }}>
                 <Icon name={m.icon} size={16} color={on ? `var(--${m.tone})` : 'var(--ink-faint)'} />
-                {m.label}
+                {sectionLabel}
               </button>
             );
           })}
           <div className="card" style={{ marginTop: 16, padding: '12px 13px' }}>
             <div className="mono" style={{ fontSize: 9.5, letterSpacing: '.14em', color: 'var(--ink-faint)', textTransform: 'uppercase', marginBottom: 6 }}>
-              Tip · Versions
+              {t.baseCV.tipTitle}
             </div>
             <p style={{ fontSize: 11.5, lineHeight: 1.5, color: 'var(--ink-soft)', margin: 0 }}>
-              Use the <b>1 2 3</b> buttons atop any entry to keep alternate wordings — pull the right one per CV later.
+              {t.baseCV.tipText}
             </p>
           </div>
         </nav>
@@ -605,15 +610,14 @@ export function BaseCVScreen({ base, onBack, onDone }: BaseCVProps) {
               fontSize: 15, color: 'var(--ink-soft)', lineHeight: 1.5,
               marginBottom: 32, paddingBottom: 20, borderBottom: '1.5px solid var(--line)',
             }}>
-              Be exhaustive here — this is the whole of your career, unedited. You'll trim it into tailored readings later.
-              Nothing here is shown to anyone until you draw a CV from it.
+              {t.baseCV.intro}
             </p>
 
             {/* GENERAL */}
-            <SectionShell id="general" meta={SECTION_META.general} refCb={(el) => el && (secRefs.current.general = el)}>
+            <SectionShell id="general" meta={tMeta('general')} refCb={(el) => el && (secRefs.current.general = el)}>
               <FRow>
-                <CF label="Full name" value={g.name} onChange={(v) => setGen('name', v)} />
-                <CF label="Pronouns" value={g.pronouns || ''} onChange={(v) => setGen('pronouns', v)} ph="they/them" />
+                <CF label={t.fields.fullName} value={g.name} onChange={(v) => setGen('name', v)} />
+                <CF label={t.fields.pronouns} value={g.pronouns || ''} onChange={(v) => setGen('pronouns', v)} ph="they/them" />
               </FRow>
               <Gap h={14} />
               <div className="sv-pop" style={{
@@ -628,6 +632,7 @@ export function BaseCVScreen({ base, onBack, onDone }: BaseCVProps) {
                     count={summaryVersions.length}
                     active={activeSummaryV}
                     onSelect={setActiveSummaryV}
+                    label={t.baseCV.versionsLabel}
                     onAdd={() => {
                       const newIdx = summaryVersions.length;
                       setSummaryVersions((vs) => [...vs, vs[activeSummaryV] || '']);
@@ -637,7 +642,7 @@ export function BaseCVScreen({ base, onBack, onDone }: BaseCVProps) {
                 </div>
                 <div style={{ padding: '16px 16px 6px' }}>
                   <div className="field">
-                    <label>Professional summary</label>
+                    <label>{t.fields.professionalSummary}</label>
                     <textarea className="textarea" rows={5}
                       value={summaryVersions[activeSummaryV] || ''}
                       onChange={(e) => {
@@ -650,16 +655,16 @@ export function BaseCVScreen({ base, onBack, onDone }: BaseCVProps) {
             </SectionShell>
 
             {/* CONTACT */}
-            <SectionShell id="contact" meta={SECTION_META.contact} refCb={(el) => el && (secRefs.current.contact = el)}>
+            <SectionShell id="contact" meta={tMeta('contact')} refCb={(el) => el && (secRefs.current.contact = el)}>
               <FRow>
-                <CF label="Location" value={g.location} onChange={(v) => setGen('location', v)} />
-                <CF label="Email" value={g.email} onChange={(v) => setGen('email', v)} />
+                <CF label={t.fields.location} value={g.location} onChange={(v) => setGen('location', v)} />
+                <CF label={t.fields.email} value={g.email} onChange={(v) => setGen('email', v)} />
               </FRow>
               <Gap h={14} />
-              <CF label="Phone" value={g.phone} onChange={(v) => setGen('phone', v)} />
+              <CF label={t.fields.phone} value={g.phone} onChange={(v) => setGen('phone', v)} />
               <Gap h={18} />
               <div className="field">
-                <label>External links</label>
+                <label>{t.fields.externalLinks}</label>
               </div>
               {g.links.map((link, i) => (
                 <div key={i} style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
@@ -675,65 +680,65 @@ export function BaseCVScreen({ base, onBack, onDone }: BaseCVProps) {
                   </button>
                 </div>
               ))}
-              <AddBtn label="Add link" onClick={addLink} />
+              <AddBtn label={t.buttons.addLink} onClick={addLink} />
             </SectionShell>
 
             {/* WORK */}
             <VersionedSection
-              id="work" meta={SECTION_META.work} initial={base.work} onChange={setWork}
+              id="work" meta={tMeta('work')} initial={base.work} onChange={setWork}
               refCb={(el) => el && (secRefs.current.work = el)}
               makeBlank={() => ({ id: mkId(), role: '', org: '', start: '', end: '', location: '', tags: [], blurb: '', bullets: [] })}
-              addLabel="Add work experience"
+              addLabel={t.buttons.addWork}
               renderFields={(d, set) => (
                 <>
                   <FRow>
-                    <CF label="Role" value={d.role} onChange={(v) => set('role', v)} />
-                    <CF label="Organisation" value={d.org} onChange={(v) => set('org', v)} />
+                    <CF label={t.fields.role} value={d.role} onChange={(v) => set('role', v)} />
+                    <CF label={t.fields.organisation} value={d.org} onChange={(v) => set('org', v)} />
                   </FRow>
                   <Gap />
                   <FRow cols="1fr 1fr 1fr 1fr">
-                    <CF label="From" value={d.start} onChange={(v) => set('start', v)} />
-                    <CF label="To" value={d.end} onChange={(v) => set('end', v)} />
-                    <CF label="Location" value={d.location} onChange={(v) => set('location', v)} />
-                    <CF label="Tags" value={asText(d.tags)} onChange={(v) => set('tags', v)} />
+                    <CF label={t.fields.from} value={d.start} onChange={(v) => set('start', v)} />
+                    <CF label={t.fields.to} value={d.end} onChange={(v) => set('end', v)} />
+                    <CF label={t.fields.location} value={d.location} onChange={(v) => set('location', v)} />
+                    <CF label={t.fields.tags} value={asText(d.tags)} onChange={(v) => set('tags', v)} />
                   </FRow>
                   <Gap />
-                  <CF label="One-line summary" value={d.blurb} onChange={(v) => set('blurb', v)} full />
+                  <CF label={t.fields.oneLineSummary} value={d.blurb} onChange={(v) => set('blurb', v)} full />
                   <Gap />
-                  <CF label="Highlights (one per line)" value={asText(d.bullets, '\n')} onChange={(v) => set('bullets', v)} area full />
+                  <CF label={t.fields.highlights} value={asText(d.bullets, '\n')} onChange={(v) => set('bullets', v)} area full />
                 </>
               )} />
 
             {/* EDUCATION */}
             <VersionedSection
-              id="education" meta={SECTION_META.education} initial={base.education} onChange={setSection('education')}
+              id="education" meta={tMeta('education')} initial={base.education} onChange={setSection('education')}
               refCb={(el) => el && (secRefs.current.education = el)}
               makeBlank={() => ({ id: mkId(), degree: '', org: '', start: '', end: '', note: '' })}
-              addLabel="Add education"
+              addLabel={t.buttons.addEducation}
               renderFields={(d, set) => (
                 <>
                   <FRow>
-                    <CF label="Degree / programme" value={d.degree} onChange={(v) => set('degree', v)} />
-                    <CF label="Institution" value={d.org} onChange={(v) => set('org', v)} />
+                    <CF label={t.fields.degree} value={d.degree} onChange={(v) => set('degree', v)} />
+                    <CF label={t.fields.institution} value={d.org} onChange={(v) => set('org', v)} />
                   </FRow>
                   <Gap />
                   <FRow cols="1fr 1fr 2fr">
-                    <CF label="From" value={d.start} onChange={(v) => set('start', v)} />
-                    <CF label="To" value={d.end} onChange={(v) => set('end', v)} />
-                    <CF label="Note" value={d.note} onChange={(v) => set('note', v)} />
+                    <CF label={t.fields.from} value={d.start} onChange={(v) => set('start', v)} />
+                    <CF label={t.fields.to} value={d.end} onChange={(v) => set('end', v)} />
+                    <CF label={t.fields.note} value={d.note} onChange={(v) => set('note', v)} />
                   </FRow>
                 </>
               )} />
 
             {/* PORTFOLIO */}
             <VersionedSection
-              id="portfolio" meta={SECTION_META.portfolio} initial={base.portfolio} onChange={setPortfolio}
+              id="portfolio" meta={tMeta('portfolio')} initial={base.portfolio} onChange={setPortfolio}
               refCb={(el) => el && (secRefs.current.portfolio = el)}
               makeBlank={() => ({ id: mkId(), kind: 'project', name: '', role: '', year: '', url: '', desc: '', images: [], platform: '', tags: [] })}
               addRow={(addItem) => (
                 <div style={{ display: 'flex', gap: 12 }}>
-                  <div style={{ flex: 1 }}><AddBtn label="Add project" onClick={() => addItem({ kind: 'project' })} /></div>
-                  <div style={{ flex: 1 }}><AddBtn label="Add entire portfolio" onClick={() => addItem({ kind: 'external' })} /></div>
+                  <div style={{ flex: 1 }}><AddBtn label={t.buttons.addProject} onClick={() => addItem({ kind: 'project' })} /></div>
+                  <div style={{ flex: 1 }}><AddBtn label={t.buttons.addPortfolio} onClick={() => addItem({ kind: 'external' })} /></div>
                 </div>
               )}
               renderFields={(d, set) => {
@@ -741,37 +746,37 @@ export function BaseCVScreen({ base, onBack, onDone }: BaseCVProps) {
                 return (
                   <>
                     <SegToggle value={kind} onChange={(k) => set('kind', k)} options={[
-                      { id: 'project',  icon: 'layers',   label: 'Project' },
-                      { id: 'external', icon: 'external', label: 'Entire portfolio' },
+                      { id: 'project',  icon: 'layers',   label: t.portfolio.projectLabel },
+                      { id: 'external', icon: 'external', label: t.portfolio.entirePortfolioLabel },
                     ]} />
                     {kind === 'project' ? (
                       <>
                         <FRow cols="2fr 1fr 1fr">
-                          <CF label="Project" value={d.name} onChange={(v) => set('name', v)} />
-                          <CF label="Role" value={d.role} onChange={(v) => set('role', v)} />
-                          <CF label="Year" value={d.year} onChange={(v) => set('year', v)} />
+                          <CF label={t.fields.project} value={d.name} onChange={(v) => set('name', v)} />
+                          <CF label={t.fields.role} value={d.role} onChange={(v) => set('role', v)} />
+                          <CF label={t.fields.year} value={d.year} onChange={(v) => set('year', v)} />
                         </FRow>
                         <Gap />
-                        <CF label="Link" value={d.url} onChange={(v) => set('url', v)} full />
+                        <CF label={t.fields.link} value={d.url} onChange={(v) => set('url', v)} full />
                         <Gap />
-                        <CF label="Description" value={d.desc} onChange={(v) => set('desc', v)} area full />
+                        <CF label={t.fields.description} value={d.desc} onChange={(v) => set('desc', v)} area full />
                         <Gap />
                         <PortfolioImages images={d.images || []} onChange={(imgs) => set('images', imgs)} />
                       </>
                     ) : (
                       <>
                         <FRow cols="2fr 1fr 1fr">
-                          <CF label="Collection name" value={d.name} onChange={(v) => set('name', v)} />
-                          <CF label="Platform" value={d.platform} onChange={(v) => set('platform', v)} />
-                          <CF label="Year" value={d.year} onChange={(v) => set('year', v)} />
+                          <CF label={t.fields.collectionName} value={d.name} onChange={(v) => set('name', v)} />
+                          <CF label={t.fields.platform} value={d.platform} onChange={(v) => set('platform', v)} />
+                          <CF label={t.fields.year} value={d.year} onChange={(v) => set('year', v)} />
                         </FRow>
                         <Gap />
-                        <CF label="External URL" value={d.url} onChange={(v) => set('url', v)} ph="behance.net/yourname" full />
+                        <CF label={t.fields.externalURL} value={d.url} onChange={(v) => set('url', v)} ph="behance.net/yourname" full />
                         <Gap />
-                        <CF label="Description" value={d.desc} onChange={(v) => set('desc', v)} area full />
+                        <CF label={t.fields.description} value={d.desc} onChange={(v) => set('desc', v)} area full />
                         <div className="mono" style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 10.5, color: 'var(--ink-faint)', marginTop: 10 }}>
                           <Icon name="external" size={13} color="var(--blue)" />
-                          Links recruiters straight out to your hosted gallery — no files attached.
+                          {t.portfolio.externalHint}
                         </div>
                       </>
                     )}
@@ -781,72 +786,72 @@ export function BaseCVScreen({ base, onBack, onDone }: BaseCVProps) {
 
             {/* OTHER */}
             <VersionedSection
-              id="other" meta={SECTION_META.other} initial={base.other} onChange={setSection('other')}
+              id="other" meta={tMeta('other')} initial={base.other} onChange={setSection('other')}
               refCb={(el) => el && (secRefs.current.other = el)}
               makeBlank={() => ({ id: mkId(), title: '', org: '', period: '', desc: '' })}
-              addLabel="Add other experience"
+              addLabel={t.buttons.addOther}
               renderFields={(d, set) => (
                 <>
                   <FRow cols="1fr 1fr 1fr">
-                    <CF label="What" value={d.title} onChange={(v) => set('title', v)} />
-                    <CF label="Where" value={d.org} onChange={(v) => set('org', v)} />
-                    <CF label="When" value={d.period} onChange={(v) => set('period', v)} />
+                    <CF label={t.fields.what} value={d.title} onChange={(v) => set('title', v)} />
+                    <CF label={t.fields.where} value={d.org} onChange={(v) => set('org', v)} />
+                    <CF label={t.fields.when} value={d.period} onChange={(v) => set('period', v)} />
                   </FRow>
                   <Gap />
-                  <CF label="Description" value={d.desc} onChange={(v) => set('desc', v)} area full />
+                  <CF label={t.fields.description} value={d.desc} onChange={(v) => set('desc', v)} area full />
                 </>
               )} />
 
             {/* CERTS */}
             <VersionedSection
-              id="certs" meta={SECTION_META.certs} initial={base.certs} onChange={setSection('certs')}
+              id="certs" meta={tMeta('certs')} initial={base.certs} onChange={setSection('certs')}
               refCb={(el) => el && (secRefs.current.certs = el)}
               makeBlank={() => ({ id: mkId(), name: '', org: '', year: '' })}
-              addLabel="Add certification"
+              addLabel={t.buttons.addCert}
               renderFields={(d, set) => (
                 <FRow cols="2fr 1fr 1fr">
-                  <CF label="Certification" value={d.name} onChange={(v) => set('name', v)} />
-                  <CF label="Issuer" value={d.org} onChange={(v) => set('org', v)} />
-                  <CF label="Year" value={d.year} onChange={(v) => set('year', v)} />
+                  <CF label={t.fields.certification} value={d.name} onChange={(v) => set('name', v)} />
+                  <CF label={t.fields.issuer} value={d.org} onChange={(v) => set('org', v)} />
+                  <CF label={t.fields.year} value={d.year} onChange={(v) => set('year', v)} />
                 </FRow>
               )} />
 
             {/* SKILLS */}
-            <SectionShell id="skills" meta={SECTION_META.skills} count={draft.skills.length}
+            <SectionShell id="skills" meta={tMeta('skills')} count={draft.skills.length}
               refCb={(el) => el && (secRefs.current.skills = el)}>
               <p className="mono" style={{ fontSize: 11, color: 'var(--ink-faint)', margin: '-6px 0 16px', lineHeight: 1.5 }}>
-                Group by domain, then rate each skill. The stars are private — they only help you decide what to surface per role.
+                {t.skills.groupHint}
               </p>
               <SkillsEditor groups={base.skills} onChange={setSection('skills')} />
             </SectionShell>
 
             {/* LANGUAGES */}
             <VersionedSection
-              id="languages" meta={SECTION_META.languages} initial={base.languages} onChange={setSection('languages')}
+              id="languages" meta={tMeta('languages')} initial={base.languages} onChange={setSection('languages')}
               refCb={(el) => el && (secRefs.current.languages = el)}
               makeBlank={() => ({ id: mkId(), name: '', level: '' })}
-              addLabel="Add language"
+              addLabel={t.buttons.addLanguage}
               renderFields={(d, set) => (
                 <FRow>
-                  <CF label="Language" value={d.name} onChange={(v) => set('name', v)} />
+                  <CF label={t.fields.language} value={d.name} onChange={(v) => set('name', v)} />
                   <div className="field">
-                    <label>Proficiency</label>
+                    <label>{t.fields.proficiency}</label>
                     <select className="input" value={d.level || ''} onChange={(e) => set('level', e.target.value)}>
-                      <option value="">— select level —</option>
-                      <optgroup label="Plain Description">
-                        <option value="Basic">Basic</option>
-                        <option value="Conversational">Conversational</option>
-                        <option value="Proficient">Proficient</option>
-                        <option value="Fluent">Fluent</option>
-                        <option value="Native">Native</option>
+                      <option value="">{t.proficiency.selectLevel}</option>
+                      <optgroup label={t.proficiency.plainLabel}>
+                        <option value="Basic">{t.proficiency.basic}</option>
+                        <option value="Conversational">{t.proficiency.conversational}</option>
+                        <option value="Proficient">{t.proficiency.proficient}</option>
+                        <option value="Fluent">{t.proficiency.fluent}</option>
+                        <option value="Native">{t.proficiency.native}</option>
                       </optgroup>
-                      <optgroup label="CEFR Framework">
-                        <option value="A1 - Beginner">A1 — Beginner</option>
-                        <option value="A2 - Elementary">A2 — Elementary</option>
-                        <option value="B1 - Intermediate">B1 — Intermediate</option>
-                        <option value="B2 - Upper-Intermediate">B2 — Upper-Intermediate</option>
-                        <option value="C1 - Advanced">C1 — Advanced</option>
-                        <option value="C2 - Proficiency">C2 — Proficiency</option>
+                      <optgroup label={t.proficiency.cefrLabel}>
+                        <option value="A1 - Beginner">{t.proficiency.a1}</option>
+                        <option value="A2 - Elementary">{t.proficiency.a2}</option>
+                        <option value="B1 - Intermediate">{t.proficiency.b1}</option>
+                        <option value="B2 - Upper-Intermediate">{t.proficiency.b2}</option>
+                        <option value="C1 - Advanced">{t.proficiency.c1}</option>
+                        <option value="C2 - Proficiency">{t.proficiency.c2}</option>
                       </optgroup>
                       {d.level && !['Basic','Conversational','Proficient','Fluent','Native',
                         'A1 - Beginner','A2 - Elementary','B1 - Intermediate',
